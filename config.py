@@ -1,44 +1,55 @@
-"""
-Governance-Suite — Configuración centralizada
-"""
 import os
-from pathlib import Path
+import datetime
 
-# Directorios base
-BASE_DIR = Path(__file__).parent
-OUTPUT_DIR = BASE_DIR / "output"
-LOGS_DIR = BASE_DIR / "logs"
-LOCALES_DIR = BASE_DIR / "locales"
+try:
+    import ntsecuritycon as con
+    import win32security
+    import pywintypes
+    WIN32_ENABLED = True
+except ImportError:
+    WIN32_ENABLED = False
 
-# Crear directorios si no existen
-OUTPUT_DIR.mkdir(exist_ok=True)
-LOGS_DIR.mkdir(exist_ok=True)
 
-# Idioma por defecto
-DEFAULT_LANG = os.environ.get("GSUITE_LANG", "es")
+class Config:
+    """Configuración centralizada de Governance-Suite."""
 
-# Versión
-VERSION = "1.0.0"
-APP_NAME = "Governance-Suite"
+    # ── Rendimiento ────────────────────────────────────────────────
+    MAX_WORKERS: int = 16
 
-# GUI
-GUI_THEME = "clam"           # Opciones: clam, alt, default, classic
-GUI_WINDOW_SIZE = "1200x750"
-GUI_MIN_SIZE = (900, 600)
+    # ── Rutas base ─────────────────────────────────────────────────
+    try:
+        BASE_DIR: str = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        BASE_DIR: str = os.getcwd()
 
-# CLI
-CLI_PAGE_SIZE = 25           # Filas por página en tablas CLI
-CLI_COLOR = True             # Habilitar colores ANSI en CLI
+    OUTPUT_DIR: str = os.path.join(BASE_DIR, "output")
+    LOGS_DIR: str   = os.path.join(BASE_DIR, "logs")
 
-# Exportación
-DEFAULT_EXPORT_FORMAT = "csv"   # csv | excel | json
-EXCEL_MAX_ROWS = 100_000
+    # ── Sesión actual ──────────────────────────────────────────────
+    TIMESTAMP: str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-# Logging
-LOG_LEVEL = os.environ.get("GSUITE_LOG_LEVEL", "INFO")
-LOG_ROTATION = "7 days"
+    # ── Validación de fechas ───────────────────────────────────────
+    MIN_YEAR_VALID: int = 1990
+    MAX_YEAR_VALID: int = datetime.datetime.now().year + 1
 
-# Red / Servidores
-DEFAULT_TIMEOUT = 30        # segundos
-DEFAULT_THREADS = 4         # hilos para escaneo paralelo
-SMB_PORT = 445
+    # ── Idioma ─────────────────────────────────────────────────────
+    LANGUAGE: str = "es"   # "es" | "en"
+
+    # ── Permisos NTFS (solo Windows con pywin32) ───────────────────
+    PERMISSIONS_MAP: dict = {
+        con.FILE_ALL_ACCESS: "Full Control",
+        (con.FILE_GENERIC_READ | con.FILE_GENERIC_EXECUTE
+         | con.DELETE | con.FILE_GENERIC_WRITE): "Modify",
+        (con.FILE_GENERIC_READ | con.FILE_GENERIC_EXECUTE): "Read & Execute",
+        con.FILE_GENERIC_READ: "Read",
+        con.FILE_GENERIC_WRITE: "Write",
+    } if WIN32_ENABLED else {}
+
+    INHERITED_ACE: int = 0x10
+
+    # ── Exportación ────────────────────────────────────────────────
+    DEFAULT_EXPORT_FORMAT: str = "csv"   # "csv" | "xlsx" | "json"
+
+    # ── Versión ────────────────────────────────────────────────────
+    VERSION: str = "1.0.0"
+    APP_NAME: str = "Governance-Suite"

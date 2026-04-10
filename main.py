@@ -1,68 +1,75 @@
+#!/usr/bin/env python3
 """
-Governance-Suite — Launcher principal
+Governance-Suite — Launcher principal.
+
 Uso:
-    python main.py          → lanza GUI
-    python main.py --cli    → lanza CLI interactiva
-    python main.py --help   → muestra ayuda
+    python main.py          -> lanza GUI (Tkinter)
+    python main.py --cli    -> lanza CLI interactivo
+    python main.py --help   -> muestra ayuda
 """
 import sys
-import argparse
+import os
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        prog="Governance-Suite",
-        description="Suite unificada CLI + GUI para gestión de archivos, permisos y análisis",
-    )
-    parser.add_argument(
-        "--cli",
-        action="store_true",
-        help="Ejecutar en modo CLI interactivo",
-    )
-    parser.add_argument(
-        "--version",
-        action="store_true",
-        help="Mostrar versión y salir",
-    )
-    parser.add_argument(
-        "--lang",
-        choices=["es", "en"],
-        default=None,
-        help="Idioma de la interfaz (es|en)",
-    )
-    return parser.parse_args()
+def show_help():
+    print("""
+Governance-Suite v1.0.0
+-----------------------
+Uso: python main.py [OPCION]
+
+Opciones:
+  (sin args)   Lanza la interfaz gráfica (GUI)
+  --cli        Lanza el menú interactivo CLI
+  --help       Muestra esta ayuda
+
+Ejemplos:
+  python main.py
+  python main.py --cli
+  python run_gui.py
+  python run_cli.py
+""")
 
 
-def main():
-    args = parse_args()
+def launch_gui():
+    """Importa y lanza la GUI de Tkinter."""
+    try:
+        from gui.app import GovernanceApp
+        app = GovernanceApp()
+        app.mainloop()
+    except ImportError as e:
+        print(f"[ERROR] No se pudo cargar la GUI: {e}")
+        print("Intenta: python main.py --cli")
+        sys.exit(1)
 
-    # Mostrar versión
-    if args.version:
-        from config import VERSION, APP_NAME
-        print(f"{APP_NAME} v{VERSION}")
-        sys.exit(0)
 
-    # Sobrescribir idioma si se especificó
-    if args.lang:
-        import os
-        os.environ["GSUITE_LANG"] = args.lang
-
-    if args.cli:
-        # Modo CLI
+def launch_cli():
+    """Importa y lanza el menú CLI."""
+    try:
         from cli.menu_main import MainMenu
         menu = MainMenu()
         menu.run()
-    else:
-        # Modo GUI (por defecto)
-        try:
-            from gui.app import GovernanceApp
-            app = GovernanceApp()
-            app.run()
-        except ImportError as e:
-            print(f"[Error] No se pudo cargar la GUI: {e}")
-            print("Intenta ejecutar con --cli para modo consola.")
-            sys.exit(1)
+    except ImportError as e:
+        print(f"[ERROR] No se pudo cargar el CLI: {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\n\n[!] Cancelado por el usuario.")
+        sys.exit(0)
 
 
 if __name__ == "__main__":
-    main()
+    args = sys.argv[1:]
+
+    if "--help" in args or "-h" in args:
+        show_help()
+        sys.exit(0)
+
+    if "--cli" in args:
+        launch_cli()
+    else:
+        # Por defecto lanza GUI; si falla por entorno headless, cae a CLI
+        try:
+            import tkinter  # noqa: F401 — verificación silenciosa
+            launch_gui()
+        except Exception:
+            print("[INFO] Entorno sin display detectado. Cambiando a modo CLI...")
+            launch_cli()

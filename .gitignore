@@ -1,7 +1,11 @@
+# Salidas y logs
+output/
+logs/
+audit_*/
+
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
 *.pyo
 *.pyd
 .Python
@@ -11,45 +15,23 @@ dist/
 *.egg
 .eggs/
 
-# Virtual environments
+# Entornos virtuales
 venv/
+.venv/
 env/
 .env
-.venv/
-ENV/
 
-# PyInstaller
-*.spec.bak
-dist/
-build/
-
-# Output y logs de sesión
-output/
-logs/
-audit_*/
-
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*.sublime-project
-*.sublime-workspace
+
+# Build
+*.spec
+build_exe.bat
+*.exe
 
 # OS
 .DS_Store
 Thumbs.db
-desktop.ini
-
-# Configuración local
-config.local.py
-*.local.json
-
-# Credenciales
-*.pem
-*.key
-secrets.py
-
-# Excel temporales
-~$*.xlsx
-~$*.xls

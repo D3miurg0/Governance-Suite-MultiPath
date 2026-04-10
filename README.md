@@ -1,26 +1,41 @@
 # Governance-Suite
 
-> Suite unificada CLI + GUI para gestión de archivos, permisos NTFS, migración y análisis en servidores Windows/Linux.
+Suite unificada **CLI + GUI** para administración de archivos, permisos NTFS, migración y análisis en infraestructura Windows/Linux.
 
-## Descripción
+> Evolución consolidada de: `DemiurgoGUI` · `OpFiles-Core` · `FileOpsMaster` · `DemiurgoProject` · `PermisosApp`
 
-Evolución consolidada de 5 proyectos anteriores:
-- **FileOpsMaster** — operaciones de archivos V1–V10
-- **DemiurgoProject** — arquitectura modular + build .exe
-- **PermisosApp** — auditoría de permisos con GUI
-- **DemiurgoGUI** — GUI madura + 12 sesiones de auditoría reales
-- **OpFiles-Core** — primer intento CLI+GUI con i18n
+---
 
 ## Características
 
-- ✅ **Dos interfaces**: CLI interactiva con menús + GUI con pestañas (Tkinter)
-- ✅ **Core compartido**: toda la lógica en `core/` — sin duplicación entre interfaces
-- ✅ **Menús anidados** en CLI (submenús por módulo)
-- ✅ **Tabs unificados** en GUI (una ventana, todas las funciones)
-- ✅ **i18n** ES/EN heredado de OpFiles-Core
-- ✅ **Logging** por sesión en `logs/`
-- ✅ **Exportación** CSV, Excel y JSON
-- ✅ **Build** a `.exe` con PyInstaller
+| Módulo | Descripción |
+|---|---|
+| 🔍 **Scanner** | Escaneo multi-hilo de metadatos de archivos en rutas locales y UNC |
+| 📦 **Migration** | Migración paralela/streaming con reintentos y manejo de permisos NTFS |
+| 🔐 **Permissions** | Auditoría completa de permisos NTFS con exportación CSV |
+| 📊 **Analysis** | Análisis de reportes CSV por año, tamaño y tipo |
+| 🌍 **Global Analysis** | Análisis multi-servidor consolidado |
+| ↔️ **Comparison** | Comparación entre auditorías (diff de permisos) |
+| 📤 **Exporter** | Exportación a CSV, Excel y JSON |
+| 📝 **Logs** | Sistema de log por sesión de auditoría |
+
+---
+
+## Modos de ejecución
+
+```bash
+# Lanzador automático (detecta --cli o lanza GUI)
+python main.py
+
+# Modo CLI interactivo
+python main.py --cli
+python run_cli.py
+
+# Modo GUI (Tkinter)
+python run_gui.py
+```
+
+---
 
 ## Instalación
 
@@ -30,67 +45,63 @@ cd Governance-Suite
 pip install -r requirements.txt
 ```
 
-## Uso
-
+### Dependencias opcionales (Windows)
 ```bash
-# Lanzar GUI (por defecto)
-python main.py
-
-# Lanzar CLI
-python main.py --cli
-
-# O directamente
-python run_gui.py
-python run_cli.py
+pip install pywin32   # Para gestión de permisos NTFS
 ```
 
-## Estructura
+---
+
+## Estructura del proyecto
 
 ```
 Governance-Suite/
-├── main.py              # Launcher: detecta --cli o lanza GUI
-├── run_cli.py           # Entrada directa CLI
-├── run_gui.py           # Entrada directa GUI
-├── config.py            # Configuración centralizada
+├── main.py               # Launcher principal (CLI o GUI)
+├── run_cli.py            # Entrada directa CLI
+├── run_gui.py            # Entrada directa GUI
+├── config.py             # Configuración centralizada
 ├── requirements.txt
-├── build.bat            # Build Windows .exe
-├── build.sh             # Build Linux/Mac
-├── Governance-Suite.spec
 │
-├── core/                # Motor compartido (sin UI)
-│   ├── scanner.py       # Escaneo de servidores remotos
-│   ├── migration.py     # Migración de archivos
-│   ├── permission.py    # Auditoría de permisos NTFS
-│   ├── analysis.py      # Métricas y estadísticas
-│   ├── global_analysis.py  # Análisis multi-servidor
-│   ├── comparison.py    # Comparación entre auditorías
-│   ├── exporter.py      # CSV / Excel / JSON
-│   ├── metrics.py       # Métricas de gobernanza
-│   └── logger.py        # Logging de sesiones
+├── core/                 # Motor compartido (sin dependencias de UI)
+│   ├── audit.py          # Sesión de auditoría y logging
+│   ├── utils.py          # Utilidades generales
+│   └── language.py       # Sistema i18n
 │
-├── cli/                 # Versión CLI
-│   ├── menu_main.py     # Menú principal interactivo
-│   ├── menu_scan.py
-│   ├── menu_migration.py
-│   ├── menu_permissions.py
-│   ├── menu_analysis.py
-│   └── menu_reports.py
+├── modules/              # Módulos funcionales
+│   ├── scan.py           # Escaneo de archivos multi-hilo
+│   ├── migration.py      # Migración de archivos
+│   ├── permission.py     # Auditoría de permisos NTFS
+│   ├── analysis.py       # Análisis de métricas
+│   ├── global_analysis.py# Análisis multi-servidor
+│   ├── comparison.py     # Comparación entre auditorías
+│   ├── exporter.py       # Exportadores CSV/Excel/JSON
+│   └── excel_rewriter.py # Reescritura/normalización Excel
 │
-├── gui/                 # Versión GUI (Tkinter)
-│   ├── app.py           # Ventana principal con tabs
-│   ├── tab_scan.py
-│   ├── tab_migration.py
-│   ├── tab_permissions.py
-│   ├── tab_analysis.py
-│   └── tab_reports.py
+├── cli/                  # Interfaz CLI con menús interactivos
+│   ├── menu_main.py      # Menú principal
+│   ├── menu_scan.py      # Submenú escaneo
+│   ├── menu_migration.py # Submenú migración
+│   ├── menu_permissions.py# Submenú permisos
+│   ├── menu_analysis.py  # Submenú análisis
+│   └── menu_reports.py   # Submenú reportes
 │
-├── locales/             # i18n
-│   ├── es.json
-│   └── en.json
+├── gui/                  # Interfaz gráfica Tkinter
+│   ├── app.py            # Ventana principal con tabs
+│   ├── tab_scan.py       # Tab escaneo
+│   ├── tab_migration.py  # Tab migración
+│   ├── tab_permissions.py# Tab permisos
+│   ├── tab_analysis.py   # Tab análisis
+│   └── tab_reports.py    # Tab reportes
 │
-├── output/              # Resultados (gitignored)
-└── logs/                # Logs de sesión (gitignored)
+├── locales/              # Internacionalización
+│   ├── es.json           # Español
+│   └── en.json           # Inglés
+│
+├── output/               # Resultados generados (gitignored)
+└── logs/                 # Logs de sesión (gitignored)
 ```
+
+---
 
 ## Requisitos
 
@@ -98,6 +109,8 @@ Governance-Suite/
 - Windows (recomendado para permisos NTFS) o Linux
 - Ver `requirements.txt`
 
+---
+
 ## Licencia
 
-Privado — D3miurg0
+Proyecto privado — D3miurg0 / Luis Eduardo Sánchez González
