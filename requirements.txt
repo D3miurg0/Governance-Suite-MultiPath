@@ -1,6 +1,11 @@
-tqdm>=4.65.0
-openpyxl>=3.1.0
-pandas>=2.0.0
+# ── Core ──────────────────────────────────────────────────────────────────
 colorama>=0.4.6
-# Opcional Windows:
-# pywin32
+tqdm>=4.66.0
+
+# ── Análisis y Exportación ───────────────────────────────────────────────
+pandas>=2.0.0
+openpyxl>=3.1.0
+xlsxwriter>=3.1.0
+
+# ── Permisos NTFS (solo Windows) ─────────────────────────────────────────
+# pywin32>=306  # Descomentar en Windows
