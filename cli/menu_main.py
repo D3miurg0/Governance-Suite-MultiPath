@@ -1,107 +1,77 @@
-"""
-Governance-Suite — Menú principal CLI
-"""
+import os
 import sys
+from config import Config
+from core.audit import AuditCore
+from core.language import LANG
+
 try:
-    from rich.console import Console
-    from rich.panel import Panel
-    from rich.table import Table
-    RICH = True
+    from colorama import init, Fore, Style
+    init(autoreset=True)
+    COLORS = True
 except ImportError:
-    RICH = False
-
-from config import APP_NAME, VERSION
-
-console = Console() if RICH else None
-
-
-def clear():
-    import os
-    os.system("cls" if sys.platform == "win32" else "clear")
+    COLORS = False
+    class Fore:
+        CYAN = GREEN = YELLOW = RED = MAGENTA = WHITE = ""
+    class Style:
+        BRIGHT = RESET_ALL = ""
 
 
-def print_header():
-    if RICH:
-        console.print(Panel(
-            f"[bold cyan]{APP_NAME} v{VERSION}[/bold cyan]\n"
-            "[dim]Suite unificada para gestión, permisos y análisis de infraestructura[/dim]",
-            border_style="cyan",
-            expand=False,
-        ))
-    else:
-        print(f"\n{'='*50}")
-        print(f"  {APP_NAME} v{VERSION}")
-        print(f"{'='*50}\n")
+def header(title: str):
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print(f"{Fore.CYAN}{Style.BRIGHT}" + "=" * 60)
+    print(f"  {Config.APP_NAME} v{Config.VERSION}  —  {title}")
+    print("=" * 60 + Style.RESET_ALL)
 
 
-def prompt(msg: str, default: str = "") -> str:
-    try:
-        val = input(msg).strip()
-        return val if val else default
-    except (KeyboardInterrupt, EOFError):
-        print("\n[Saliendo]")
-        sys.exit(0)
+def input_path(prompt: str) -> str:
+    val = input(f"{Fore.YELLOW}  {prompt}: {Style.RESET_ALL}").strip().strip('"')
+    return val
 
 
-def show_menu(title: str, options: list) -> str:
-    """Muestra un menú numerado y devuelve la opción elegida."""
-    if RICH:
-        t = Table(show_header=False, box=None, padding=(0, 2))
-        t.add_column("#", style="bold yellow", width=4)
-        t.add_column("Opción", style="white")
-        for i, (label, _) in enumerate(options, 1):
-            t.add_row(str(i), label)
-        t.add_row("0", "[dim]Volver / Salir[/dim]")
-        console.print(f"\n[bold]{title}[/bold]")
-        console.print(t)
-    else:
-        print(f"\n{title}")
-        for i, (label, _) in enumerate(options, 1):
-            print(f"  {i}. {label}")
-        print("  0. Volver / Salir")
-
-    return prompt("\nElige una opción: ", "0")
+def pause():
+    input(f"\n{Fore.WHITE}  Presione ENTER para continuar...{Style.RESET_ALL}")
 
 
 class MainMenu:
+    """Menú principal del CLI de Governance-Suite."""
+
+    def __init__(self):
+        self.core = AuditCore()
+        self.core.create_session_folder()
+
     def run(self):
         while True:
-            clear()
-            print_header()
-            options = [
-                ("Escaneo de servidores",    self._scan),
-                ("Migración de archivos",    self._migration),
-                ("Auditoría de permisos",   self._permissions),
-                ("Análisis y métricas",     self._analysis),
-                ("Reportes y exportación",   self._reports),
-            ]
-            choice = show_menu("Menú principal", options)
-            if choice == "0":
-                print("\nHasta luego.\n")
+            header("Menú Principal")
+            print(f"{Fore.GREEN}")
+            print("  [1]  Escaneo de Archivos")
+            print("  [2]  Migración de Archivos")
+            print("  [3]  Auditoría de Permisos NTFS")
+            print("  [4]  Análisis y Dashboard Excel")
+            print("  [5]  Reportes y Exportación")
+            print(f"{Fore.RED}")
+            print("  [0]  Salir")
+            print(Style.RESET_ALL)
+            opt = input(f"{Fore.CYAN}  Opción: {Style.RESET_ALL}").strip()
+
+            if opt == "1":
+                from cli.menu_scan import ScanMenu
+                ScanMenu(self.core).run()
+            elif opt == "2":
+                from cli.menu_migration import MigrationMenu
+                MigrationMenu(self.core).run()
+            elif opt == "3":
+                from cli.menu_permissions import PermissionsMenu
+                PermissionsMenu(self.core).run()
+            elif opt == "4":
+                from cli.menu_analysis import AnalysisMenu
+                AnalysisMenu(self.core).run()
+            elif opt == "5":
+                from cli.menu_reports import ReportsMenu
+                ReportsMenu(self.core).run()
+            elif opt == "0":
+                print(f"\n{Fore.CYAN}  Hasta luego.{Style.RESET_ALL}")
+                self.core.cleanup_session()
                 sys.exit(0)
-            try:
-                idx = int(choice) - 1
-                if 0 <= idx < len(options):
-                    options[idx][1]()
-            except (ValueError, IndexError):
-                pass
-
-    def _scan(self):
-        from cli.menu_scan import ScanMenu
-        ScanMenu().run()
-
-    def _migration(self):
-        from cli.menu_migration import MigrationMenu
-        MigrationMenu().run()
-
-    def _permissions(self):
-        from cli.menu_permissions import PermissionsMenu
-        PermissionsMenu().run()
-
-    def _analysis(self):
-        from cli.menu_analysis import AnalysisMenu
-        AnalysisMenu().run()
-
-    def _reports(self):
-        from cli.menu_reports import ReportsMenu
-        ReportsMenu().run()
+            else:
+                print(f"{Fore.RED}  Opción no válida.{Style.RESET_ALL}")
+                pause()
