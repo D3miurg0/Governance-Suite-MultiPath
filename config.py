@@ -1,5 +1,6 @@
 import os
 import datetime
+from pathlib import Path
 
 try:
     import ntsecuritycon as con
@@ -27,6 +28,10 @@ class Config:
         BASE_DIR: str = os.getcwd()
 
     OUTPUT_DIR: str = os.path.join(BASE_DIR, "output")
+    LOGS_DIR: Path = Path(BASE_DIR) / "logs"
+
+    # ── Logging ──────────────────────────────────────────────────────────────
+    LOG_LEVEL: str = "INFO"
 
     # ── Tiempo ───────────────────────────────────────────────────────────────
     TIMESTAMP:      str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -46,3 +51,8 @@ class Config:
         else {}
     )
     INHERITED_ACE: int = 0x10
+
+
+# ── Aliases módulo-nivel (requeridos por core/logger.py) ─────────────────────
+LOGS_DIR  = Config.LOGS_DIR
+LOG_LEVEL = Config.LOG_LEVEL
