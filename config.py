@@ -38,6 +38,11 @@ class Config:
     MIN_YEAR_VALID: int = 1990
     MAX_YEAR_VALID: int = datetime.datetime.now().year + 1
 
+    # ── GUI ──────────────────────────────────────────────────────────────────
+    GUI_THEME:       str   = "dark"
+    GUI_WINDOW_SIZE: str   = "1280x780"
+    GUI_MIN_SIZE:    tuple = (900, 600)
+
     # ── Permisos NTFS ────────────────────────────────────────────────────────
     PERMISSIONS_MAP: dict = (
         {
@@ -53,6 +58,15 @@ class Config:
     INHERITED_ACE: int = 0x10
 
 
-# ── Aliases módulo-nivel (requeridos por core/logger.py) ─────────────────────
-LOGS_DIR  = Config.LOGS_DIR
-LOG_LEVEL = Config.LOG_LEVEL
+# ── Aliases módulo-nivel ──────────────────────────────────────────────────────
+# Requeridos por importaciones directas: from config import APP_NAME, ...
+APP_NAME        = Config.APP_NAME
+VERSION         = Config.VERSION
+GUI_THEME       = Config.GUI_THEME
+GUI_WINDOW_SIZE = Config.GUI_WINDOW_SIZE
+GUI_MIN_SIZE    = Config.GUI_MIN_SIZE
+LOGS_DIR        = Config.LOGS_DIR
+LOG_LEVEL       = Config.LOG_LEVEL
+OUTPUT_DIR      = Config.OUTPUT_DIR
+BASE_DIR        = Config.BASE_DIR
+WIN32_ENABLED   = WIN32_ENABLED
