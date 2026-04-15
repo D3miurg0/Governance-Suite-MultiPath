@@ -6,47 +6,65 @@ Herramienta de gobernanza para escaneo, migración, análisis de permisos NTFS y
 
 ## Requisitos previos
 
-- Windows 10/11
-- **Python 3.10 o superior** instalado y en el PATH  
+- Windows 10/11 o Windows Server 2016/2019/2022
+- **Python 3.10 o superior** (solo para ejecución con venv o compilación)
   Descarga: https://www.python.org/downloads/
+- Para despliegue en servidor como `.exe`: **no se requiere Python**
 
 ---
 
-## Instalación (una sola vez por máquina)
+## Opción 1 — Ejecución local con venv
 
-1. Copia o descarga la carpeta del proyecto en la máquina destino.
-2. Doble clic en **`instalar.bat`**.
-   - Crea el entorno virtual `venv`
-   - Instala todas las dependencias (`requirements.txt`, `pywin32`, `ttkthemes`)
-   - Crea las carpetas `logs/` y `output/`
-
----
-
-## Ejecución normal
-
-Doble clic en **`run.bat`**, o desde CMD:
+### Instalación (una sola vez)
 
 ```bat
-call venv\Scripts\activate
-python run_gui.py
+instalar.bat
+```
+
+### Lanzar la app
+
+```bat
+run.bat
 ```
 
 ---
 
-## Ejecución con otra cuenta (recomendado para leer permisos NTFS)
+## Opción 2 — Compilar .exe para servidor
 
-Para acceder a rutas de red protegidas, ejecuta con una cuenta de dominio con privilegios:
+### Compilar
 
 ```bat
-runas /user:DOMINIO\usuario "cmd /k cd /d C:\ruta\Governance-Suite && venv\Scripts\activate && python run_gui.py"
+build.bat
 ```
 
-**Ejemplo real:**
+El ejecutable queda en `dist\` junto con las carpetas `logs\` y `output\`.
+
+### Desplegar en servidor
+
+Copiar estos 3 elementos al servidor:
+
+```
+GovernanceSuite.exe
+logs\
+output\
+```
+
+Doble clic en `GovernanceSuite.exe` para iniciar. **No requiere Python instalado.**
+
+---
+
+## Ejecución con cuenta de dominio
+
 ```bat
-runas /user:gap.net\spectragap "cmd /k cd /d C:\Users\e.siapti2\Downloads\Aranda\Governance-Suite-main\Governance-Suite-main && venv\Scripts\activate && python run_gui.py"
+runas /user:DOMINIO\usuario "C:\ruta\GovernanceSuite.exe"
 ```
 
-Se pedirá la contraseña de la cuenta indicada.
+**Ejemplo:**
+```bat
+runas /user:gap.net\spectragap "C:\GovernanceSuite\GovernanceSuite.exe"
+```
+
+Si ya estás logueado en el servidor con la cuenta correcta, basta con doble clic.
 
 ---
 
@@ -56,9 +74,10 @@ Se pedirá la contraseña de la cuenta indicada.
 Governance-Suite/
 ├── run_gui.py          # Punto de entrada GUI
 ├── run_cli.py          # Punto de entrada CLI
-├── config.py           # Configuración global
+├── config.py           # Configuración global (compatible venv y .exe)
 ├── instalar.bat        # Instalación automática (ejecutar una vez)
-├── run.bat             # Lanzador rápido
+├── run.bat             # Lanzador rápido (venv)
+├── build.bat           # Compilar .exe para despliegue en servidor
 ├── requirements.txt    # Dependencias Python
 ├── gui/                # Interfaz gráfica (tabs)
 │   ├── app.py
@@ -69,7 +88,7 @@ Governance-Suite/
 │   └── tab_reports.py
 ├── core/               # Lógica de negocio
 │   ├── scanner.py
-│   ├── migrator.py
+│   ├── migration.py
 │   ├── permissions.py
 │   ├── analyzer.py
 │   └── logger.py
@@ -89,11 +108,4 @@ Governance-Suite/
 | `ttkthemes` | Temas visuales para la GUI |
 | `colorama` | Colores en CLI |
 | `tqdm` | Barras de progreso CLI |
-
----
-
-## Notas
-
-- Los archivos exportados se guardan en `output/`
-- Los logs de sesión se guardan en `logs/`
-- El tema visual por defecto es `clam` (compatible con todos los sistemas Windows sin dependencias adicionales)
+| `pyinstaller` | Compilación a .exe (solo en equipo de desarrollo) |

@@ -25,8 +25,9 @@ mkdir output 2>nul
 
 echo [5/5] Instalacion completada.
 echo.
-echo Para ejecutar la aplicacion usa: run.bat
-echo Para ejecutar con otra cuenta usa:
-echo   runas /user:DOMINIO\usuario "cmd /k cd /d %~dp0 && venv\Scripts\activate && python run_gui.py"
+echo Opciones de ejecucion:
+echo   1. Ejecucion local con venv:  run.bat
+echo   2. Compilar .exe para server: build.bat
+echo   3. Con cuenta de dominio:     runas /user:DOMINIO\usuario "ruta\GovernanceSuite.exe"
 echo.
 pause
