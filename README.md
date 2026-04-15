@@ -1,37 +1,52 @@
-# Governance-Suite
+# Governance-Suite v2.0.0
 
-> Plataforma unificada de gobernanza de archivos: escaneo, migración, auditoría de permisos NTFS y dashboards analíticos.
+Herramienta de gobernanza para escaneo, migración, análisis de permisos NTFS y generación de reportes sobre servidores de archivos Windows.
 
 ---
 
-## Requisitos
+## Requisitos previos
 
-- Python 3.11+
-- Windows (recomendado para módulo de permisos NTFS)
+- Windows 10/11
+- **Python 3.10 o superior** instalado y en el PATH  
+  Descarga: https://www.python.org/downloads/
 
-```bash
-pip install -r requirements.txt
-# Solo en Windows, para auditoría de permisos:
-pip install pywin32
+---
+
+## Instalación (una sola vez por máquina)
+
+1. Copia o descarga la carpeta del proyecto en la máquina destino.
+2. Doble clic en **`instalar.bat`**.
+   - Crea el entorno virtual `venv`
+   - Instala todas las dependencias (`requirements.txt`, `pywin32`, `ttkthemes`)
+   - Crea las carpetas `logs/` y `output/`
+
+---
+
+## Ejecución normal
+
+Doble clic en **`run.bat`**, o desde CMD:
+
+```bat
+call venv\Scripts\activate
+python run_gui.py
 ```
 
 ---
 
-## Uso rápido
+## Ejecución con otra cuenta (recomendado para leer permisos NTFS)
 
-```bash
-python main.py
+Para acceder a rutas de red protegidas, ejecuta con una cuenta de dominio con privilegios:
+
+```bat
+runas /user:DOMINIO\usuario "cmd /k cd /d C:\ruta\Governance-Suite && venv\Scripts\activate && python run_gui.py"
 ```
 
-Se abrirá el menú interactivo principal con las siguientes opciones:
+**Ejemplo real:**
+```bat
+runas /user:gap.net\spectragap "cmd /k cd /d C:\Users\e.siapti2\Downloads\Aranda\Governance-Suite-main\Governance-Suite-main && venv\Scripts\activate && python run_gui.py"
+```
 
-| Opción | Función |
-|--------|--------|
-| 1 | Escaneo de archivos (multi-hilo, por año) |
-| 2 | Migración paralela/streaming con filtros de fecha |
-| 3 | Auditoría de permisos NTFS (ACL) |
-| 4 | Dashboard Excel consolidado |
-| 5 | Reportes y exportación |
+Se pedirá la contraseña de la cuenta indicada.
 
 ---
 
@@ -39,31 +54,46 @@ Se abrirá el menú interactivo principal con las siguientes opciones:
 
 ```
 Governance-Suite/
-├── main.py                  # Launcher
-├── config.py                # Constantes globales
-├── requirements.txt
-├── core/
-│   ├── audit.py             # Sesión, locks, logging
-│   ├── utils.py             # Utilidades compartidas
-│   └── language.py          # Strings de idioma
-├── modules/
-│   ├── scan.py              # Escaneo multi-hilo
-│   ├── migration.py         # Migración paralela/streaming
-│   ├── permission.py        # Auditoría ACL NTFS
-│   └── analysis.py          # Dashboard Excel
-└── cli/
-    ├── menu_main.py         # Menú raíz
-    ├── menu_scan.py
-    ├── menu_migration.py
-    ├── menu_permissions.py
-    ├── menu_analysis.py
-    └── menu_reports.py
+├── run_gui.py          # Punto de entrada GUI
+├── run_cli.py          # Punto de entrada CLI
+├── config.py           # Configuración global
+├── instalar.bat        # Instalación automática (ejecutar una vez)
+├── run.bat             # Lanzador rápido
+├── requirements.txt    # Dependencias Python
+├── gui/                # Interfaz gráfica (tabs)
+│   ├── app.py
+│   ├── tab_scan.py
+│   ├── tab_migration.py
+│   ├── tab_permissions.py
+│   ├── tab_analysis.py
+│   └── tab_reports.py
+├── core/               # Lógica de negocio
+│   ├── scanner.py
+│   ├── migrator.py
+│   ├── permissions.py
+│   ├── analyzer.py
+│   └── logger.py
+├── output/             # Reportes exportados (CSV, Excel, JSON)
+└── logs/               # Logs de sesión
 ```
+
+---
+
+## Dependencias
+
+| Paquete | Uso |
+|---|---|
+| `pandas` | Procesamiento de datos |
+| `openpyxl` / `xlsxwriter` | Exportación a Excel |
+| `pywin32` | Lectura de permisos NTFS (Windows) |
+| `ttkthemes` | Temas visuales para la GUI |
+| `colorama` | Colores en CLI |
+| `tqdm` | Barras de progreso CLI |
 
 ---
 
 ## Notas
 
-- El módulo de permisos ACL requiere `pywin32` y ejecución con privilegios en Windows.
-- Los reportes se guardan en `output/<timestamp>/` dentro del directorio del proyecto.
-- Compatible con rutas largas UNC (`\\?\UNC\` y `\\?\`).
+- Los archivos exportados se guardan en `output/`
+- Los logs de sesión se guardan en `logs/`
+- El tema visual por defecto es `clam` (compatible con todos los sistemas Windows sin dependencias adicionales)
