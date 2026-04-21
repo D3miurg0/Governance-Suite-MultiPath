@@ -23,13 +23,28 @@ def compute_checksum(path: str, algorithm: str = "md5") -> str:
     return h.hexdigest()
 
 
+def _is_newer_or_different(src: Path, dst: Path) -> bool:
+    """Devuelve True si src es más nuevo o tiene distinto tamaño que dst."""
+    try:
+        s = src.stat()
+        d = dst.stat()
+        return s.st_size != d.st_size or s.st_mtime > d.st_mtime
+    except Exception:
+        return True
+
+
 def copy_file(
     src: str,
     dst: str,
     verify: bool = True,
     overwrite: bool = False,
+    sync_mode: bool = False,
 ) -> Dict:
-    """Copia un archivo con verificación de integridad opcional."""
+    """Copia un archivo con verificación de integridad opcional.
+
+    sync_mode=True: solo copia si origen es más nuevo o tiene distinto tamaño.
+    overwrite=True : sobreescribe sin comparar fecha/tamaño.
+    """
     src_path, dst_path = Path(src), Path(dst)
     result = {"src": src, "dst": dst, "status": "pending", "error": None}
 
@@ -38,10 +53,15 @@ def copy_file(
         result["error"] = "Archivo origen no encontrado"
         return result
 
-    if dst_path.exists() and not overwrite:
-        result["status"] = "skipped"
-        result["error"] = "Destino ya existe"
-        return result
+    if dst_path.exists():
+        if not overwrite and not sync_mode:
+            result["status"] = "skipped"
+            result["error"] = "Destino ya existe"
+            return result
+        if sync_mode and not _is_newer_or_different(src_path, dst_path):
+            result["status"] = "skipped"
+            result["error"] = "Origen igual al destino (fecha/tamaño)"
+            return result
 
     try:
         dst_path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +74,7 @@ def copy_file(
                 result["error"] = f"Checksum mismatch: {src_hash} vs {dst_hash}"
                 return result
             result["checksum"] = src_hash
+        result["status"] = "updated" if dst_path.exists() else "ok"
         result["status"] = "ok"
         logger.info(f"Copiado: {src} → {dst}")
     except Exception as e:
@@ -70,10 +91,14 @@ def migrate_directory(
     extensions: Optional[List[str]] = None,
     verify: bool = True,
     overwrite: bool = False,
+    sync_mode: bool = False,
     threads: int = DEFAULT_THREADS,
     progress_callback: Optional[Callable] = None,
 ) -> List[Dict]:
-    """Migra un directorio completo con soporte multihilo."""
+    """Migra un directorio completo con soporte multihilo.
+
+    sync_mode=True: compara fecha y tamaño antes de copiar.
+    """
     src_root = Path(src_dir)
     dst_root = Path(dst_dir)
     files = [
@@ -84,15 +109,15 @@ def migrate_directory(
     ]
     total = len(files)
     results = []
-    completed = 0
 
     def _copy(f):
         rel = f.relative_to(src_root)
         dst = dst_root / rel
-        return copy_file(str(f), str(dst), verify, overwrite)
+        return copy_file(str(f), str(dst), verify, overwrite, sync_mode)
 
     with ThreadPoolExecutor(max_workers=threads) as executor:
         futures = {executor.submit(_copy, f): f for f in files}
+        completed = 0
         for future in as_completed(futures):
             r = future.result()
             results.append(r)
@@ -100,8 +125,8 @@ def migrate_directory(
             if progress_callback:
                 progress_callback(completed, total, r)
 
-    ok = sum(1 for r in results if r["status"] == "ok")
+    ok      = sum(1 for r in results if r["status"] == "ok")
     skipped = sum(1 for r in results if r["status"] == "skipped")
-    errors = sum(1 for r in results if r["status"] == "error")
+    errors  = sum(1 for r in results if r["status"] == "error")
     logger.info(f"Migración completada: {ok} OK, {skipped} omitidos, {errors} errores")
     return results
