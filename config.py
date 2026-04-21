@@ -55,3 +55,7 @@ MAX_YEAR_VALID  = Config.MAX_YEAR_VALID
 DEFAULT_THREADS = 8
 DEFAULT_TIMEOUT = 5
 WIN32_ENABLED   = WIN32_ENABLED
+
+# --- Auto-crear directorios esenciales al arrancar ---
+for _dir in (Config.LOGS_DIR, Config.OUTPUT_DIR):
+    _dir.mkdir(parents=True, exist_ok=True)
