@@ -53,7 +53,9 @@ def copy_file(
         result["error"] = "Archivo origen no encontrado"
         return result
 
-    if dst_path.exists():
+    dst_existed = dst_path.exists()
+
+    if dst_existed:
         if not overwrite and not sync_mode:
             result["status"] = "skipped"
             result["error"] = "Destino ya existe"
@@ -74,8 +76,8 @@ def copy_file(
                 result["error"] = f"Checksum mismatch: {src_hash} vs {dst_hash}"
                 return result
             result["checksum"] = src_hash
-        result["status"] = "updated" if dst_path.exists() else "ok"
-        result["status"] = "ok"
+        # fix: usar dst_existed (capturado antes de copiar) para distinguir ok vs updated
+        result["status"] = "updated" if dst_existed else "ok"
         logger.info(f"Copiado: {src} → {dst}")
     except Exception as e:
         result["status"] = "error"
@@ -91,13 +93,13 @@ def migrate_directory(
     extensions: Optional[List[str]] = None,
     verify: bool = True,
     overwrite: bool = False,
-    sync_mode: bool = False,
+    sync_only: bool = False,   # fix: renombrado de sync_mode a sync_only para coincidir con GUI
     threads: int = DEFAULT_THREADS,
     progress_callback: Optional[Callable] = None,
 ) -> List[Dict]:
     """Migra un directorio completo con soporte multihilo.
 
-    sync_mode=True: compara fecha y tamaño antes de copiar.
+    sync_only=True: compara fecha y tamaño antes de copiar.
     """
     src_root = Path(src_dir)
     dst_root = Path(dst_dir)
@@ -113,7 +115,7 @@ def migrate_directory(
     def _copy(f):
         rel = f.relative_to(src_root)
         dst = dst_root / rel
-        return copy_file(str(f), str(dst), verify, overwrite, sync_mode)
+        return copy_file(str(f), str(dst), verify, overwrite, sync_only)
 
     with ThreadPoolExecutor(max_workers=threads) as executor:
         futures = {executor.submit(_copy, f): f for f in files}
@@ -126,7 +128,8 @@ def migrate_directory(
                 progress_callback(completed, total, r)
 
     ok      = sum(1 for r in results if r["status"] == "ok")
+    updated = sum(1 for r in results if r["status"] == "updated")
     skipped = sum(1 for r in results if r["status"] == "skipped")
     errors  = sum(1 for r in results if r["status"] == "error")
-    logger.info(f"Migración completada: {ok} OK, {skipped} omitidos, {errors} errores")
+    logger.info(f"Migración completada: {ok} nuevos, {updated} actualizados, {skipped} omitidos, {errors} errores")
     return results
