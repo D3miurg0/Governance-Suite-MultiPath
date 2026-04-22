@@ -63,10 +63,10 @@ class MigrationTab:
                   font=("Segoe UI", 10, "bold"), relief="flat",
                   command=self._start).pack(pady=8)
 
-        # Barra de progreso determinada + etiqueta de conteo
+        # Barra de progreso + etiqueta de conteo
         pb_frame = tk.Frame(frame, bg=c["bg"])
         pb_frame.pack(fill=tk.X, padx=12, pady=(0, 2))
-        self.progress = ttk.Progressbar(pb_frame, mode="determinate", maximum=100)
+        self.progress = ttk.Progressbar(pb_frame, mode="indeterminate", maximum=100)
         self.progress.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.progress_label = tk.Label(pb_frame, text="", bg=c["bg"], fg=c["fg"],
                                        font=("Segoe UI", 9), width=18, anchor="e")
@@ -96,6 +96,18 @@ class MigrationTab:
         self.log.see(tk.END)
         self.log.configure(state="disabled")
 
+    def _set_scanning_mode(self):
+        """Barra indeterminate animada mientras se escanea la red."""
+        self.progress.configure(mode="indeterminate")
+        self.progress.start(10)
+        self.progress_label.configure(text="Escaneando...")
+
+    def _set_progress_mode(self, total):
+        """Cambia a barra determinada una vez se conoce el total de archivos."""
+        self.progress.stop()
+        self.progress.configure(mode="determinate", maximum=100, value=0)
+        self.progress_label.configure(text=f"0 / {total}  (0%)")
+
     def _update_progress(self, done, total):
         pct = int(done / total * 100) if total else 0
         self.progress["value"] = pct
@@ -107,30 +119,33 @@ class MigrationTab:
         if not src or not dst:
             messagebox.showwarning("Faltan datos", "Selecciona origen y destino.")
             return
-        # Resetear barra
-        self.progress["value"] = 0
-        self.progress_label.configure(text="")
+        self.results = []
         self._log(f"Iniciando migración: {src} → {dst}")
+        # Arrancar en modo escaneo desde el hilo principal antes de lanzar el worker
+        self._set_scanning_mode()
         Thread(target=self._worker, args=(src, dst), daemon=True).start()
 
     def _worker(self, src, dst):
-        counters = {"ok": 0, "updated": 0, "skipped": 0, "error": 0}
+        # --- Fase 1: escaneo (barra indeterminate ya activa) ---
+        self.parent.after(0, lambda: self._log(
+            "🔍 Escaneando archivos en origen (puede tardar en rutas de red)..."
+        ))
+
+        first_callback = [True]  # flag para detectar primer callback
 
         def cb(done, total, r):
-            status = r.get("status", "?")
-            # Acumular contadores
-            if status == "ok":
-                counters["ok"] += 1
-            elif status == "updated":
-                counters["updated"] += 1
-            elif status == "skipped":
-                counters["skipped"] += 1
-            elif status == "error":
-                counters["error"] += 1
+            # Al llegar el primer resultado ya tenemos el total → cambiar a determinada
+            if first_callback[0]:
+                first_callback[0] = False
+                self.parent.after(0, lambda t=total: self._set_progress_mode(t))
+                self.parent.after(0, lambda: self._log(
+                    f"📂 {total} archivo(s) encontrado(s). Copiando..."
+                ))
 
+            status = r.get("status", "?")
             self.parent.after(0, lambda d=done, t=total: self._update_progress(d, t))
-            self.parent.after(0, lambda: self._log(
-                f"[{status.upper()}] {r.get('src', '')}"
+            self.parent.after(0, lambda s=status, r=r: self._log(
+                f"[{s.upper()}] {r.get('src', '')}"
             ))
 
         try:
@@ -141,26 +156,31 @@ class MigrationTab:
                 sync_only=self.sync_var.get(),
                 progress_callback=cb,
             )
-            # Recalcular contadores desde resultados finales (fuente de verdad)
-            total = len(self.results)
+            total   = len(self.results)
             ok      = sum(1 for r in self.results if r["status"] == "ok")
             updated = sum(1 for r in self.results if r["status"] == "updated")
             skipped = sum(1 for r in self.results if r["status"] == "skipped")
             errors  = sum(1 for r in self.results if r["status"] == "error")
 
             summary = (
-                f"\n{'─' * 48}\n"
+                f"\n{'\u2500' * 48}\n"
                 f"  Migración finalizada — {total} archivo(s) procesado(s)\n"
                 f"  ✅  Copiados:     {ok}\n"
                 f"  🔄  Actualizados: {updated}\n"
                 f"  ⏭️  Saltados:     {skipped}\n"
                 f"  ❌  Errores:      {errors}\n"
-                f"{'─' * 48}"
+                f"{'\u2500' * 48}"
             )
             self.parent.after(0, lambda: self._log(summary))
-            # Barra al 100% al terminar
             self.parent.after(0, lambda: self._update_progress(total, total))
+
+            # Si no hubo ningún archivo (directorio vacío o sin coincidencias)
+            if total == 0:
+                self.parent.after(0, lambda: self._set_progress_mode(0))
+                self.parent.after(0, lambda: self.progress_label.configure(text="Sin archivos"))
+
         except Exception as e:
+            self.parent.after(0, self.progress.stop)
             self.parent.after(0, lambda: messagebox.showerror("Error", str(e)))
 
     def _export(self, fmt):
