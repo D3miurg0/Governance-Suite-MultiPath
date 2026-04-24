@@ -1,10 +1,12 @@
 """
 Governance-Suite — Migración de archivos
 Copia, mueve y verifica integridad de archivos entre rutas locales o UNC.
+Soporta filtro por fecha de modificación (date_from, date_to, year).
 """
 import os
 import shutil
 import hashlib
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -33,16 +35,36 @@ def _is_newer_or_different(src: Path, dst: Path) -> bool:
         return True
 
 
+def _passes_date_filter(
+    f: Path,
+    date_from: Optional[datetime],
+    date_to: Optional[datetime],
+    year: Optional[int],
+) -> bool:
+    """Devuelve True si el archivo cumple el filtro de fecha de modificación."""
+    try:
+        mtime = datetime.fromtimestamp(f.stat().st_mtime)
+    except Exception:
+        return True  # si no se puede leer la fecha, no filtrar
+    if year is not None and mtime.year != year:
+        return False
+    if date_from is not None and mtime < date_from:
+        return False
+    if date_to is not None and mtime > date_to:
+        return False
+    return True
+
+
 def copy_file(
     src: str,
     dst: str,
     verify: bool = True,
     overwrite: bool = False,
-    sync_mode: bool = False,
+    sync_only: bool = False,
 ) -> Dict:
     """Copia un archivo con verificación de integridad opcional.
 
-    sync_mode=True: solo copia si origen es más nuevo o tiene distinto tamaño.
+    sync_only=True : solo copia si origen es más nuevo o tiene distinto tamaño.
     overwrite=True : sobreescribe sin comparar fecha/tamaño.
     """
     src_path, dst_path = Path(src), Path(dst)
@@ -56,11 +78,11 @@ def copy_file(
     dst_existed = dst_path.exists()
 
     if dst_existed:
-        if not overwrite and not sync_mode:
+        if not overwrite and not sync_only:
             result["status"] = "skipped"
             result["error"] = "Destino ya existe"
             return result
-        if sync_mode and not _is_newer_or_different(src_path, dst_path):
+        if sync_only and not _is_newer_or_different(src_path, dst_path):
             result["status"] = "skipped"
             result["error"] = "Origen igual al destino (fecha/tamaño)"
             return result
@@ -76,7 +98,6 @@ def copy_file(
                 result["error"] = f"Checksum mismatch: {src_hash} vs {dst_hash}"
                 return result
             result["checksum"] = src_hash
-        # fix: usar dst_existed (capturado antes de copiar) para distinguir ok vs updated
         result["status"] = "updated" if dst_existed else "ok"
         logger.info(f"Copiado: {src} → {dst}")
     except Exception as e:
@@ -93,21 +114,31 @@ def migrate_directory(
     extensions: Optional[List[str]] = None,
     verify: bool = True,
     overwrite: bool = False,
-    sync_only: bool = False,   # fix: renombrado de sync_mode a sync_only para coincidir con GUI
+    sync_only: bool = False,
     threads: int = DEFAULT_THREADS,
     progress_callback: Optional[Callable] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    year: Optional[int] = None,
 ) -> List[Dict]:
     """Migra un directorio completo con soporte multihilo.
 
-    sync_only=True: compara fecha y tamaño antes de copiar.
+    sync_only=True : compara fecha y tamaño antes de copiar.
+    date_from      : solo archivos modificados desde esta fecha.
+    date_to        : solo archivos modificados hasta esta fecha.
+    year           : shortcut — solo archivos del año indicado.
     """
     src_root = Path(src_dir)
     dst_root = Path(dst_dir)
+
+    if not src_root.exists():
+        raise FileNotFoundError(f"Directorio origen no encontrado: {src_dir}")
+
     files = [
         f for f in src_root.rglob("*")
-        if f.is_file() and (
-            not extensions or f.suffix.lower() in extensions
-        )
+        if f.is_file()
+        and (not extensions or f.suffix.lower() in extensions)
+        and _passes_date_filter(f, date_from, date_to, year)
     ]
     total = len(files)
     results = []
@@ -131,5 +162,8 @@ def migrate_directory(
     updated = sum(1 for r in results if r["status"] == "updated")
     skipped = sum(1 for r in results if r["status"] == "skipped")
     errors  = sum(1 for r in results if r["status"] == "error")
-    logger.info(f"Migración completada: {ok} nuevos, {updated} actualizados, {skipped} omitidos, {errors} errores")
+    logger.info(
+        f"Migración completada: {ok} nuevos, {updated} actualizados, "
+        f"{skipped} omitidos, {errors} errores"
+    )
     return results
