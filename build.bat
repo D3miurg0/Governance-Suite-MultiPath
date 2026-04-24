@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo  Governance-Suite ^| Build
+echo  GovernanceSuite ^| Build
 echo ========================================
 
 pip install pyinstaller >nul 2>&1
@@ -10,7 +10,7 @@ pyinstaller --clean "Governance-Suite.spec"
 
 if %ERRORLEVEL% == 0 (
     echo.
-    echo [OK] Build exitoso. Ejecutable en: dist\Governance-Suite\
+    echo [OK] Build exitoso. Ejecutable en: dist\GovernanceSuite\
 ) else (
     echo.
     echo [ERROR] Fallo en el build. Revisa los mensajes anteriores.
