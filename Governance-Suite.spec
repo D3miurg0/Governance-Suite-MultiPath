@@ -3,7 +3,7 @@
 block_cipher = None
 
 a = Analysis(
-    ['main.py'],
+    ['run_gui.py'],
     pathex=[],
     binaries=[],
     datas=[
@@ -38,7 +38,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=False,
     icon='assets/icon.ico',
     disable_windowed_traceback=False,
     target_arch=None,
