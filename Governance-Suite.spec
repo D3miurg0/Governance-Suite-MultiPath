@@ -8,6 +8,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('locales', 'locales'),
+        ('assets/icon.ico', 'assets'),
     ],
     hiddenimports=[
         'tkinter',
@@ -37,7 +38,8 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,  # Sin ventana de consola en modo GUI
+    console=False,
+    icon='assets/icon.ico',
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,
