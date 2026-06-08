@@ -1,13 +1,33 @@
 # Governance-Suite v2.0.0
 
-Herramienta de gobernanza para escaneo, migración, análisis de permisos NTFS y generación de reportes sobre servidores de archivos Windows.
+> Suite unificada CLI + GUI para gobernanza de servidores de archivos Windows/Linux: escaneo de unidades, migración de datos, análisis y gestión de permisos NTFS, y generación de reportes detallados.
+
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python) ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows) ![License](https://img.shields.io/badge/License-Private-red)
+
+---
+
+## ¿Qué es Governance-Suite?
+
+Governance-Suite es la evolución consolidada de herramientas previas (DemiurgoGUI, OpFiles-Core, FileOpsMaster, DemiurgoProject y PermisosApp) en una sola aplicación. Ofrece dos modos de operación: una **interfaz gráfica (GUI)** con pestañas para cada módulo y una **interfaz de línea de comandos (CLI)** para automatización y despliegue en servidores.
+
+---
+
+## Módulos principales
+
+| Módulo | Descripción |
+|---|---|
+| **Escaneo** | Análisis de unidades y estructura de directorios |
+| **Migración** | Transferencia y sincronización de archivos entre rutas |
+| **Permisos** | Lectura y auditoría de permisos NTFS vía `pywin32` |
+| **Análisis** | Procesamiento estadístico de datos con pandas |
+| **Reportes** | Exportación a CSV, Excel y JSON |
 
 ---
 
 ## Requisitos previos
 
 - Windows 10/11 o Windows Server 2016/2019/2022
-- **Python 3.10 o superior** (solo para ejecución con venv o compilación)
+- **Python 3.10 o superior** (solo para ejecución con venv o compilación)  
   Descarga: https://www.python.org/downloads/
 - Para despliegue en servidor como `.exe`: **no se requiere Python**
 
@@ -109,3 +129,10 @@ Governance-Suite/
 | `colorama` | Colores en CLI |
 | `tqdm` | Barras de progreso CLI |
 | `pyinstaller` | Compilación a .exe (solo en equipo de desarrollo) |
+
+---
+
+## Historial de versiones
+
+- **v2.0.0** — Suite unificada, arquitectura modular GUI + CLI
+- **v1.x** — Herramientas individuales (DemiurgoGUI, PermisosApp, FileOpsMaster, etc.)
