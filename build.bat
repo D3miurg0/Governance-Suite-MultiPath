@@ -3,7 +3,14 @@ echo ========================================
 echo  GovernanceSuite ^| Build
 echo ========================================
 
-pip install pyinstaller >nul 2>&1
+pip install pillow pyinstaller >nul 2>&1
+
+echo Generando icon.ico desde fuente Canva...
+python tools\generate_icon.py
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Fallo al generar el icono. Revisa tools\generate_icon.py
+    pause & exit /b 1
+)
 
 echo Construyendo ejecutable...
 pyinstaller --clean "Governance-Suite.spec"
