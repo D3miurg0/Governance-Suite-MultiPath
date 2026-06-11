@@ -53,7 +53,7 @@ class GovernanceApp:
         ctk.CTkLabel(
             header,
             text="File Governance Platform",
-            font=ctk.CTkFont("Segoe UI", 9, "italic"),
+            font=ctk.CTkFont(family="Segoe UI", size=9, slant="italic"),
             text_color="#6c7086"
         ).pack(side="right", padx=16)
 
