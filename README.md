@@ -1,6 +1,6 @@
-# Governance-Suite v2.0.0
+# Governance-Suite v2.1.0
 
-> Suite unificada CLI + GUI para gobernanza de servidores de archivos Windows/Linux: escaneo de unidades, migración de datos, análisis y gestión de permisos NTFS, y generación de reportes detallados.
+> Suite unificada CLI + GUI para gobernanza de servidores de archivos Windows/Linux: escaneo de unidades, migración de datos (multi-path), análisis y gestión de permisos NTFS, y generación de reportes detallados.
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python) ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows) ![License](https://img.shields.io/badge/License-Private-red)
 
@@ -17,10 +17,78 @@ Governance-Suite es la evolución consolidada de herramientas previas (DemiurgoG
 | Módulo | Descripción |
 |---|---|
 | **Escaneo** | Análisis de unidades y estructura de directorios |
-| **Migración** | Transferencia y sincronización de archivos entre rutas |
+| **Migración** | Transferencia y sincronización de archivos entre **múltiples rutas** en paralelo o secuencial |
 | **Permisos** | Lectura y auditoría de permisos NTFS vía `pywin32` |
 | **Análisis** | Procesamiento estadístico de datos con pandas |
 | **Reportes** | Exportación a CSV, Excel y JSON |
+
+---
+
+## Novedades en v2.1.0 — Migración Multi-Path
+
+### GUI
+
+La pestaña **Migración** ahora soporta **N pares Origen → Destino** configurables de forma dinámica:
+
+- **+ Agregar ruta** — añade un nuevo par Origen/Destino sin límite.
+- **✕** — elimina una fila (siempre queda al menos una).
+- **Ejecutar rutas en paralelo** — todas las rutas corren simultáneamente; desactivado = modo secuencial.
+- **Barra de progreso global** — acumula el avance de todas las rutas activas en tiempo real.
+- **Log con colores por estado** — `[OK]` verde, `[UPDATED]` azul, `[SKIPPED]` gris, `[ERROR]` rojo.
+
+### Core — `migrate_multi_paths()`
+
+Nueva función en `core/migration.py`, compatible con la función individual `migrate_directory()` existente:
+
+```python
+from core.migration import migrate_multi_paths
+
+resultados = migrate_multi_paths(
+    paths=[
+        (r"\\NAS\Depto1",  r"D:\Backup\Depto1"),
+        (r"\\NAS\Depto2",  r"D:\Backup\Depto2"),
+        (r"\\NAS\Proyectos", r"E:\Archive\Proyectos"),
+    ],
+    parallel_paths=True,      # True = todas a la vez | False = secuencial
+    verify=True,              # Verifica integridad MD5 tras cada copia
+    sync_only=True,           # Solo copia si origen es más nuevo o distinto tamaño
+    overwrite=False,
+    threads_per_path=4,       # Hilos internos por cada ruta
+    year=2025,                # Opcional: solo archivos del año indicado
+    # date_from=datetime(2025,1,1), date_to=datetime(2025,12,31)
+)
+
+# Retorna: { src_dir: [{"src", "dst", "status", "error", ...}] }
+for ruta, archivos in resultados.items():
+    errores = [a for a in archivos if a["status"] == "error"]
+    print(f"{ruta}: {len(archivos)} archivos, {len(errores)} errores")
+```
+
+#### Parámetros de `migrate_multi_paths()`
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `paths` | `List[Tuple[str,str]]` | Lista de pares `(src_dir, dst_dir)` |
+| `parallel_paths` | `bool` | `True` = rutas en paralelo (default), `False` = secuencial |
+| `threads_per_path` | `int` | Hilos internos por cada `migrate_directory` (default: `DEFAULT_THREADS`) |
+| `verify` | `bool` | Verificación de checksum MD5 tras cada archivo |
+| `overwrite` | `bool` | Sobreescribir destino aunque exista |
+| `sync_only` | `bool` | Solo copiar si origen es más nuevo o de distinto tamaño |
+| `extensions` | `List[str]` | Filtrar por extensiones, ej. `[".docx", ".pdf"]` |
+| `year` | `int` | Solo archivos modificados en el año indicado |
+| `date_from` | `datetime` | Solo archivos modificados desde esta fecha |
+| `date_to` | `datetime` | Solo archivos modificados hasta esta fecha |
+| `progress_callback` | `Callable` | `fn(path_idx, src, done, total, result)` — recibe índice de ruta y avance |
+
+#### Retorno
+
+```python
+{
+  "\\\\NAS\\Depto1":    [ {"src": "...", "dst": "...", "status": "ok",      "checksum": "..."}, ... ],
+  "\\\\NAS\\Depto2":    [ {"src": "...", "dst": "...", "status": "updated", "checksum": "..."}, ... ],
+  "\\\\NAS\\Proyectos": [ {"src": "...", "dst": "...", "status": "skipped", "error": "..."}, ... ],
+}
+```
 
 ---
 
@@ -102,15 +170,15 @@ Governance-Suite/
 ├── gui/                # Interfaz gráfica (tabs)
 │   ├── app.py
 │   ├── tab_scan.py
-│   ├── tab_migration.py
+│   ├── tab_migration.py     # ← Multi-path: N pares Origen→Destino
 │   ├── tab_permissions.py
 │   ├── tab_analysis.py
 │   └── tab_reports.py
 ├── core/               # Lógica de negocio
 │   ├── scanner.py
-│   ├── migration.py
-│   ├── permissions.py
-│   ├── analyzer.py
+│   ├── migration.py         # ← migrate_directory() + migrate_multi_paths()
+│   ├── permission.py
+│   ├── analysis.py
 │   └── logger.py
 ├── output/             # Reportes exportados (CSV, Excel, JSON)
 └── logs/               # Logs de sesión
@@ -134,5 +202,6 @@ Governance-Suite/
 
 ## Historial de versiones
 
+- **v2.1.0** — Migración multi-path: N rutas en paralelo o secuencial, nueva función `migrate_multi_paths()`, GUI dinámica con log a color y progreso global unificado
 - **v2.0.0** — Suite unificada, arquitectura modular GUI + CLI
 - **v1.x** — Herramientas individuales (DemiurgoGUI, PermisosApp, FileOpsMaster, etc.)
