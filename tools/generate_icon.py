@@ -1,12 +1,12 @@
-"""generate_icon.py — Genera assets/icon.ico multi-resolución para PyInstaller.
+"""generate_icon.py - Genera assets/icon.ico multi-resolucion para PyInstaller.
 
-Diseño: escudo hexagonal Governance Suite (paleta Catppuccin Mocha)
-  - Fondo: #1e1e2e (azul marino oscuro)
-  - Escudo: #89b4fa (azul accent)
-  - Símbolo: carpeta/archivo en #cdd6f4 (blanco azulado)
+Diseno: escudo hexagonal Governance Suite (paleta Catppuccin Mocha)
+  - Fondo:   #1e1e2e (azul marino oscuro)
+  - Escudo:  #89b4fa (azul accent)
+  - Simbolo: carpeta/archivo en #cdd6f4 (blanco azulado)
 
 Uso:
-    python tools\generate_icon.py
+    python tools/generate_icon.py
 
 Requisitos: pillow  (incluido en requirements.txt)
 """
@@ -40,12 +40,10 @@ def draw_icon(size: int):
             cx + r_outer * math.cos(angle),
             cy + r_outer * math.sin(angle),
         ))
-    # Estirar ligeramente hacia abajo para forma de escudo
     shield_pts[3] = (cx, cy + r_outer * 1.15)
     draw.polygon(shield_pts, fill=COLOR_SHIELD)
 
-    # --- Símbolo: carpeta simplificada ---
-    m  = size * 0.18
+    # --- Simbolo: carpeta simplificada ---
     fw = size * 0.50
     fh = size * 0.34
     fx = cx - fw / 2
@@ -57,7 +55,7 @@ def draw_icon(size: int):
         radius=max(1, int(size * 0.04)),
         fill=COLOR_DARK,
     )
-    # Pestaña superior
+    # Pestana superior
     tab_w = fw * 0.45
     tab_h = fh * 0.22
     draw.rounded_rectangle(
@@ -65,7 +63,7 @@ def draw_icon(size: int):
         radius=max(1, int(size * 0.03)),
         fill=COLOR_DARK,
     )
-    # Líneas de archivos dentro de la carpeta
+    # Lineas de archivos dentro de la carpeta
     if size >= 32:
         line_x0 = fx + fw * 0.18
         line_x1 = fx + fw * 0.82
