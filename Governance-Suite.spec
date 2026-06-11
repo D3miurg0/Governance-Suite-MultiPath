@@ -7,8 +7,8 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('locales', 'locales'),
-        ('assets/icon.ico', 'assets'),
+        ('locales',      'locales'),
+        ('assets',       'assets'),
     ],
     hiddenimports=[
         'tkinter',
@@ -40,6 +40,7 @@ exe = EXE(
     upx=True,
     console=False,
     icon='assets/icon.ico',
+    version_file=None,
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,

@@ -19,8 +19,9 @@ else:
 
 
 class Config:
-    APP_NAME        = 'Governance-Suite'
-    VERSION         = '2.0.0'
+    APP_NAME        = 'Governance Suite'
+    APP_NAME_FULL   = 'Governance Suite — File Governance Platform'
+    VERSION         = '2.1.0'
     GUI_THEME       = 'clam'
     GUI_WINDOW_SIZE = '1280x780'
     GUI_MIN_SIZE    = (900, 600)
@@ -28,6 +29,7 @@ class Config:
     BASE_DIR        = BASE_DIR
     OUTPUT_DIR      = BASE_DIR / 'output'
     LOGS_DIR        = BASE_DIR / 'logs'
+    ICON_PATH       = BASE_DIR / 'assets' / 'icon.ico'
     LOG_LEVEL       = 'INFO'
     TIMESTAMP       = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     MIN_YEAR_VALID  = 1990
@@ -38,10 +40,12 @@ class Config:
 
 # Aliases de acceso directo
 APP_NAME        = Config.APP_NAME
+APP_NAME_FULL   = Config.APP_NAME_FULL
 VERSION         = Config.VERSION
 GUI_THEME       = Config.GUI_THEME
 GUI_WINDOW_SIZE = Config.GUI_WINDOW_SIZE
 GUI_MIN_SIZE    = Config.GUI_MIN_SIZE
+ICON_PATH       = Config.ICON_PATH
 LOGS_DIR        = Config.LOGS_DIR
 LOG_LEVEL       = Config.LOG_LEVEL
 OUTPUT_DIR      = Config.OUTPUT_DIR
