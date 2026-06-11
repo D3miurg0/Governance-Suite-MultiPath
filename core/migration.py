@@ -2,13 +2,14 @@
 Governance-Suite — Migración de archivos
 Copia, mueve y verifica integridad de archivos entre rutas locales o UNC.
 Soporta filtro por fecha de modificación (date_from, date_to, year).
+Soporta múltiples pares origen→destino ejecutados en paralelo (migrate_multi_paths).
 """
 import os
 import shutil
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional, Callable
+from typing import List, Dict, Optional, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.logger import get_logger
 from config import DEFAULT_THREADS
@@ -45,7 +46,7 @@ def _passes_date_filter(
     try:
         mtime = datetime.fromtimestamp(f.stat().st_mtime)
     except Exception:
-        return True  # si no se puede leer la fecha, no filtrar
+        return True
     if year is not None and mtime.year != year:
         return False
     if date_from is not None and mtime < date_from:
@@ -167,3 +168,89 @@ def migrate_directory(
         f"{skipped} omitidos, {errors} errores"
     )
     return results
+
+
+# ---------------------------------------------------------------------------
+# Multi-path: migra N pares origen→destino con progreso unificado
+# ---------------------------------------------------------------------------
+
+def migrate_multi_paths(
+    paths: List[Tuple[str, str]],
+    extensions: Optional[List[str]] = None,
+    verify: bool = True,
+    overwrite: bool = False,
+    sync_only: bool = False,
+    threads_per_path: int = DEFAULT_THREADS,
+    parallel_paths: bool = True,
+    progress_callback: Optional[Callable] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    year: Optional[int] = None,
+) -> Dict[str, List[Dict]]:
+    """Migra múltiples pares (src_dir, dst_dir) de forma paralela o secuencial.
+
+    Args:
+        paths            : lista de tuplas (src_dir, dst_dir).
+        parallel_paths   : True → cada ruta en su propio hilo de nivel superior;
+                           False → rutas procesadas una tras otra.
+        progress_callback: fn(path_index, src, done, total, result)
+                           recibe el índice de la ruta, el origen, el avance del
+                           lote actual y el resultado individual del archivo.
+        threads_per_path : hilos internos por cada migrate_directory.
+        Resto de parámetros: idénticos a migrate_directory.
+
+    Returns:
+        dict { src_dir: [results] } — una clave por cada ruta origen.
+    """
+    if not paths:
+        return {}
+
+    all_results: Dict[str, List[Dict]] = {}
+
+    def _run_single(idx: int, src: str, dst: str) -> Tuple[str, List[Dict]]:
+        """Ejecuta una migración individual y envuelve el callback con el índice."""
+        def _cb(done, total, r):
+            if progress_callback:
+                progress_callback(idx, src, done, total, r)
+
+        results = migrate_directory(
+            src, dst,
+            extensions=extensions,
+            verify=verify,
+            overwrite=overwrite,
+            sync_only=sync_only,
+            threads=threads_per_path,
+            progress_callback=_cb,
+            date_from=date_from,
+            date_to=date_to,
+            year=year,
+        )
+        return src, results
+
+    if parallel_paths:
+        # Cada ruta en un hilo de nivel superior (paths en paralelo)
+        with ThreadPoolExecutor(max_workers=len(paths)) as executor:
+            futures = [
+                executor.submit(_run_single, idx, src, dst)
+                for idx, (src, dst) in enumerate(paths)
+            ]
+            for future in as_completed(futures):
+                src, results = future.result()
+                all_results[src] = results
+    else:
+        # Rutas en secuencia
+        for idx, (src, dst) in enumerate(paths):
+            src_key, results = _run_single(idx, src, dst)
+            all_results[src_key] = results
+
+    # Resumen global al log
+    total_files = sum(len(v) for v in all_results.values())
+    ok      = sum(1 for v in all_results.values() for r in v if r["status"] == "ok")
+    updated = sum(1 for v in all_results.values() for r in v if r["status"] == "updated")
+    skipped = sum(1 for v in all_results.values() for r in v if r["status"] == "skipped")
+    errors  = sum(1 for v in all_results.values() for r in v if r["status"] == "error")
+    logger.info(
+        f"Multi-path completado ({len(paths)} rutas, {total_files} archivos): "
+        f"{ok} nuevos, {updated} actualizados, {skipped} omitidos, {errors} errores"
+    )
+    return all_results
