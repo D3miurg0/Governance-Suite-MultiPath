@@ -1,8 +1,8 @@
-# Governance-Suite v2.1.0
+# Governance-Suite v2.2.0
 
 > Suite unificada CLI + GUI para gobernanza de servidores de archivos Windows/Linux: escaneo de unidades, migración de datos (multi-path), análisis y gestión de permisos NTFS, y generación de reportes detallados.
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python) ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows) ![License](https://img.shields.io/badge/License-Private-red)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python) ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows) ![GUI](https://img.shields.io/badge/GUI-CustomTkinter-informational?logo=python) ![License](https://img.shields.io/badge/License-Private-red)
 
 ---
 
@@ -21,6 +21,31 @@ Governance-Suite es la evolución consolidada de herramientas previas (DemiurgoG
 | **Permisos** | Lectura y auditoría de permisos NTFS vía `pywin32` |
 | **Análisis** | Procesamiento estadístico de datos con pandas |
 | **Reportes** | Exportación a CSV, Excel y JSON |
+
+---
+
+## Novedades en v2.2.0 — Migración a CustomTkinter
+
+### GUI modernizada con CustomTkinter
+
+Toda la interfaz gráfica migró de `tkinter` estándar a **CustomTkinter**, logrando un diseño moderno con soporte nativo de modo oscuro/claro:
+
+- **Modo oscuro activado por defecto** (`set_appearance_mode("dark")`).
+- **Tema de color azul** (`set_default_color_theme("blue")`).
+- Todos los widgets `tk.Frame`, `tk.Label`, `tk.Button`, `tk.Entry`, `tk.Checkbutton`, `tk.Radiobutton` reemplazados por sus equivalentes `ctk.*`.
+- `ttk.Progressbar` reemplazado por `ctk.CTkProgressBar`.
+- Widgets sin equivalente en CTk (`ttk.Treeview`, `ttk.Notebook`, `ttk.Scrollbar`, `ttk.Combobox`) conservados por compatibilidad.
+
+### Archivos GUI actualizados
+
+| Archivo | Cambios |
+|---|---|
+| `gui/app.py` | Ventana raíz `ctk.CTk()`, modo oscuro, tema azul |
+| `gui/tab_scan.py` | Widgets CTk completos, `CTkProgressBar` |
+| `gui/tab_analysis.py` | `CTkFrame` como pseudo-LabelFrame, color dinámico en score |
+| `gui/tab_permissions.py` | Sustitución completa + `CTkProgressBar` |
+| `gui/tab_reports.py` | Botones de cabecera CTk |
+| `gui/tab_access_control.py` | `CTkRadioButton`, `CTkCheckBox`, API `.configure()` |
 
 ---
 
@@ -160,28 +185,29 @@ Si ya estás logueado en el servidor con la cuenta correcta, basta con doble cli
 
 ```
 Governance-Suite/
-├── run_gui.py          # Punto de entrada GUI
-├── run_cli.py          # Punto de entrada CLI
-├── config.py           # Configuración global (compatible venv y .exe)
-├── instalar.bat        # Instalación automática (ejecutar una vez)
-├── run.bat             # Lanzador rápido (venv)
-├── build.bat           # Compilar .exe para despliegue en servidor
-├── requirements.txt    # Dependencias Python
-├── gui/                # Interfaz gráfica (tabs)
+├── run_gui.py               # Punto de entrada GUI
+├── run_cli.py               # Punto de entrada CLI
+├── config.py                # Configuración global (compatible venv y .exe)
+├── instalar.bat             # Instalación automática (ejecutar una vez)
+├── run.bat                  # Lanzador rápido (venv)
+├── build.bat                # Compilar .exe para despliegue en servidor
+├── requirements.txt         # Dependencias Python
+├── gui/                     # Interfaz gráfica (CustomTkinter + ttk híbrido)
 │   ├── app.py
 │   ├── tab_scan.py
-│   ├── tab_migration.py     # ← Multi-path: N pares Origen→Destino
+│   ├── tab_migration.py          # ← Multi-path: N pares Origen→Destino
 │   ├── tab_permissions.py
 │   ├── tab_analysis.py
-│   └── tab_reports.py
-├── core/               # Lógica de negocio
+│   ├── tab_reports.py
+│   └── tab_access_control.py
+├── core/                    # Lógica de negocio
 │   ├── scanner.py
-│   ├── migration.py         # ← migrate_directory() + migrate_multi_paths()
+│   ├── migration.py              # ← migrate_directory() + migrate_multi_paths()
 │   ├── permission.py
 │   ├── analysis.py
 │   └── logger.py
-├── output/             # Reportes exportados (CSV, Excel, JSON)
-└── logs/               # Logs de sesión
+├── output/                  # Reportes exportados (CSV, Excel, JSON)
+└── logs/                    # Logs de sesión
 ```
 
 ---
@@ -190,18 +216,21 @@ Governance-Suite/
 
 | Paquete | Uso |
 |---|---|
+| `customtkinter` | GUI moderna con soporte modo oscuro/claro |
 | `pandas` | Procesamiento de datos |
 | `openpyxl` / `xlsxwriter` | Exportación a Excel |
-| `pywin32` | Lectura de permisos NTFS (Windows) |
-| `ttkthemes` | Temas visuales para la GUI |
+| `pywin32` | Lectura de permisos NTFS (Windows, descomentar en requirements) |
 | `colorama` | Colores en CLI |
 | `tqdm` | Barras de progreso CLI |
-| `pyinstaller` | Compilación a .exe (solo en equipo de desarrollo) |
+| `pyinstaller` | Compilación a .exe (descomentar en requirements) |
+
+> **Nota:** `tkinter` y `ttk` son parte de la stdlib de Python y no requieren instalación. `ttk.Treeview`, `ttk.Notebook`, `ttk.Scrollbar` y `ttk.Combobox` se conservan al no tener equivalente nativo en CustomTkinter.
 
 ---
 
 ## Historial de versiones
 
+- **v2.2.0** — Migración completa de GUI a CustomTkinter: modo oscuro nativo, widgets modernos (`CTkButton`, `CTkEntry`, `CTkCheckBox`, `CTkRadioButton`, `CTkProgressBar`); `ttk` conservado donde no hay equivalente CTk
 - **v2.1.0** — Migración multi-path: N rutas en paralelo o secuencial, nueva función `migrate_multi_paths()`, GUI dinámica con log a color y progreso global unificado
 - **v2.0.0** — Suite unificada, arquitectura modular GUI + CLI
 - **v1.x** — Herramientas individuales (DemiurgoGUI, PermisosApp, FileOpsMaster, etc.)
