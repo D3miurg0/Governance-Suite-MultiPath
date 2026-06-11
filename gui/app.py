@@ -1,9 +1,9 @@
 """
-Governance Suite — Ventana principal GUI con tabs
+Governance Suite - Ventana principal GUI con tabs
 """
 import tkinter as tk
 from tkinter import ttk
-from config import APP_NAME, APP_NAME_FULL, VERSION, GUI_THEME, GUI_WINDOW_SIZE, GUI_MIN_SIZE, ICON_PATH
+from config import APP_NAME, APP_NAME_FULL, VERSION, GUI_THEME, GUI_WINDOW_SIZE, GUI_MIN_SIZE
 
 
 class GovernanceApp:
@@ -12,16 +12,8 @@ class GovernanceApp:
         self.root.title(f"{APP_NAME}  v{VERSION}")
         self.root.geometry(GUI_WINDOW_SIZE)
         self.root.minsize(*GUI_MIN_SIZE)
-        self._load_icon()
         self._setup_style()
         self._build_ui()
-
-    def _load_icon(self):
-        """Carga el ícono de la ventana y de la barra de tareas."""
-        try:
-            self.root.iconbitmap(str(ICON_PATH))
-        except Exception:
-            pass  # En Linux/Mac iconbitmap no aplica; no interrumpir arranque
 
     def _setup_style(self):
         style = ttk.Style(self.root)
@@ -72,7 +64,6 @@ class GovernanceApp:
             bg=self._colors["surface"],
             fg="#6c7086"
         ).pack(side=tk.LEFT, padx=(0, 16))
-        # Subtítulo descriptivo en el lado derecho del header
         tk.Label(
             header,
             text="File Governance Platform",
@@ -86,17 +77,17 @@ class GovernanceApp:
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=8, pady=(4, 8))
 
         # Tabs
-        from gui.tab_scan       import ScanTab
-        from gui.tab_migration  import MigrationTab
+        from gui.tab_scan        import ScanTab
+        from gui.tab_migration   import MigrationTab
         from gui.tab_permissions import PermissionsTab
-        from gui.tab_analysis   import AnalysisTab
-        from gui.tab_reports    import ReportsTab
+        from gui.tab_analysis    import AnalysisTab
+        from gui.tab_reports     import ReportsTab
 
         tabs = [
             ("  \U0001f50d  Escaneo",    ScanTab),
-            ("  \U0001f4c2  Migración",  MigrationTab),
+            ("  \U0001f4c2  Migracion",  MigrationTab),
             ("  \U0001f512  Permisos",   PermissionsTab),
-            ("  \U0001f4ca  Análisis",   AnalysisTab),
+            ("  \U0001f4ca  Analisis",   AnalysisTab),
             ("  \U0001f4c4  Reportes",   ReportsTab),
         ]
         for label, TabClass in tabs:
