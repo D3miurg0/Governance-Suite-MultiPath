@@ -3,7 +3,7 @@ Governance Suite - Ventana principal GUI con tabs
 """
 import tkinter as tk
 from tkinter import ttk
-from config import APP_NAME, APP_NAME_FULL, VERSION, GUI_THEME, GUI_WINDOW_SIZE, GUI_MIN_SIZE
+from config import APP_NAME, APP_NAME_FULL, VERSION, GUI_THEME, GUI_WINDOW_SIZE, GUI_MIN_SIZE, ICON_PATH
 
 
 class GovernanceApp:
@@ -12,8 +12,16 @@ class GovernanceApp:
         self.root.title(f"{APP_NAME}  v{VERSION}")
         self.root.geometry(GUI_WINDOW_SIZE)
         self.root.minsize(*GUI_MIN_SIZE)
+        self._load_icon()
         self._setup_style()
         self._build_ui()
+
+    def _load_icon(self):
+        """Carga el icono personalizado generado por tools/generate_icon.py."""
+        try:
+            self.root.iconbitmap(str(ICON_PATH))
+        except Exception:
+            pass  # Linux/Mac: iconbitmap no aplica, continuar sin error
 
     def _setup_style(self):
         style = ttk.Style(self.root)

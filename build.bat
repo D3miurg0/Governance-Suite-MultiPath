@@ -5,7 +5,7 @@ echo ========================================
 
 pip install pillow pyinstaller >nul 2>&1
 
-echo Generando icon.ico desde fuente Canva...
+echo Generando icon.ico...
 python tools\generate_icon.py
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Fallo al generar el icono. Revisa tools\generate_icon.py
