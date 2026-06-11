@@ -1,8 +1,9 @@
 """
-Governance-Suite — Tab GUI: Reportes y archivos exportados
+Governance-Suite — Tab GUI: Reportes y archivos exportados (customtkinter)
 """
-import tkinter as tk
+import customtkinter as ctk
 from tkinter import ttk, messagebox
+import tkinter as tk
 import os
 import subprocess
 import sys
@@ -18,23 +19,26 @@ class ReportsTab:
         c = self.colors
         frame = self.parent
 
-        header = tk.Frame(frame, bg=c["bg"], pady=10)
-        header.pack(fill=tk.X, padx=12)
-        tk.Button(header, text="🔄  Actualizar", bg=c["surface"], fg=c["fg"],
-                  relief="flat", command=self._refresh).pack(side=tk.LEFT, padx=4)
-        tk.Button(header, text="📂  Abrir carpeta output", bg=c["surface"], fg=c["fg"],
-                  relief="flat", command=self._open_output).pack(side=tk.LEFT, padx=4)
+        header = ctk.CTkFrame(frame, fg_color=c["bg"])
+        header.pack(fill="x", padx=12, pady=10)
+        ctk.CTkButton(header, text="🔄  Actualizar", width=120,
+                      fg_color=c["surface"], text_color=c["fg"],
+                      hover_color=c["accent"],
+                      command=self._refresh).pack(side="left", padx=4)
+        ctk.CTkButton(header, text="📂  Abrir carpeta output", width=180,
+                      fg_color=c["surface"], text_color=c["fg"],
+                      hover_color=c["accent"],
+                      command=self._open_output).pack(side="left", padx=4)
 
-        # Tabs internos
+        # Notebook interno (ttk)
         nb = ttk.Notebook(frame)
-        nb.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
+        nb.pack(fill="both", expand=True, padx=8, pady=4)
 
         self.output_frame = ttk.Frame(nb)
         self.logs_frame = ttk.Frame(nb)
         nb.add(self.output_frame, text="  Exportados  ")
         nb.add(self.logs_frame, text="  Logs  ")
 
-        # Lista de exportados
         self.output_tree = ttk.Treeview(
             self.output_frame,
             columns=("Archivo", "Tamaño", "Fecha"),
@@ -46,11 +50,10 @@ class ReportsTab:
         vsb = ttk.Scrollbar(self.output_frame, orient="vertical",
                             command=self.output_tree.yview)
         self.output_tree.configure(yscrollcommand=vsb.set)
-        self.output_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.output_tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
         self.output_tree.bind("<Double-1>", self._open_file)
 
-        # Lista de logs
         self.logs_tree = ttk.Treeview(
             self.logs_frame,
             columns=("Archivo", "Tamaño", "Fecha"),
@@ -62,8 +65,8 @@ class ReportsTab:
         vsb2 = ttk.Scrollbar(self.logs_frame, orient="vertical",
                              command=self.logs_tree.yview)
         self.logs_tree.configure(yscrollcommand=vsb2.set)
-        self.logs_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        vsb2.pack(side=tk.RIGHT, fill=tk.Y)
+        self.logs_tree.pack(side="left", fill="both", expand=True)
+        vsb2.pack(side="right", fill="y")
 
         self._refresh()
 
@@ -83,16 +86,14 @@ class ReportsTab:
                 size = f.stat().st_size
                 size_str = f"{size/1024:.1f} KB" if size < 1024*1024 else f"{size/1024/1024:.1f} MB"
                 mod = datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
-                tree.insert("", tk.END, values=(f.name, size_str, mod), tags=(str(f),))
+                tree.insert("", "end", values=(f.name, size_str, mod), tags=(str(f),))
 
     def _open_file(self, event):
-        tree = self.output_tree
-        item = tree.focus()
+        item = self.output_tree.focus()
         if item:
-            tags = tree.item(item, "tags")
+            tags = self.output_tree.item(item, "tags")
             if tags:
-                path = tags[0]
-                self._launch(path)
+                self._launch(tags[0])
 
     def _open_output(self):
         self._launch(str(OUTPUT_DIR))

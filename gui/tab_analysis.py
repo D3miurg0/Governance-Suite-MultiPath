@@ -1,7 +1,7 @@
 """
-Governance-Suite — Tab GUI: Análisis y métricas
+Governance-Suite — Tab GUI: Análisis y métricas (customtkinter)
 """
-import tkinter as tk
+import customtkinter as ctk
 from tkinter import ttk, filedialog, messagebox
 from threading import Thread
 from core.scanner import scan_directory
@@ -20,67 +20,90 @@ class AnalysisTab:
         c = self.colors
         frame = self.parent
 
-        ctrl = tk.Frame(frame, bg=c["bg"], pady=10)
-        ctrl.pack(fill=tk.X, padx=12)
+        ctrl = ctk.CTkFrame(frame, fg_color=c["bg"])
+        ctrl.pack(fill="x", padx=12, pady=10)
 
-        tk.Label(ctrl, text="Ruta:", bg=c["bg"], fg=c["fg"]).grid(row=0, column=0, padx=(0,6))
-        self.path_var = tk.StringVar()
-        tk.Entry(ctrl, textvariable=self.path_var, width=55,
-                 bg=c["surface"], fg=c["fg"], relief="flat").grid(row=0, column=1, padx=(0,6))
-        tk.Button(ctrl, text="Examinar", bg=c["surface"], fg=c["fg"],
-                  relief="flat", command=self._browse).grid(row=0, column=2, padx=(0,12))
-        tk.Button(ctrl, text="  ▶  Analizar", bg=c["accent"], fg="#1e1e2e",
-                  font=("Segoe UI", 10, "bold"), relief="flat",
-                  command=self._start).grid(row=0, column=3)
+        ctk.CTkLabel(ctrl, text="Ruta:", text_color=c["fg"]).grid(row=0, column=0, padx=(0, 6))
+        self.path_var = ctk.StringVar()
+        ctk.CTkEntry(ctrl, textvariable=self.path_var, width=380,
+                     fg_color=c["surface"], text_color=c["fg"]
+                     ).grid(row=0, column=1, padx=(0, 6))
+        ctk.CTkButton(ctrl, text="Examinar", width=90,
+                      fg_color=c["surface"], text_color=c["fg"],
+                      hover_color=c["accent"],
+                      command=self._browse).grid(row=0, column=2, padx=(0, 12))
+        ctk.CTkButton(ctrl, text="  ▶  Analizar",
+                      fg_color=c["accent"], text_color="#1e1e2e",
+                      font=ctk.CTkFont("Segoe UI", 10, "bold"),
+                      hover_color="#74c7ec",
+                      command=self._start).grid(row=0, column=3)
 
-        self.progress = ttk.Progressbar(frame, mode="indeterminate")
-        self.progress.pack(fill=tk.X, padx=12, pady=(0,4))
+        self.progress = ctk.CTkProgressBar(frame, mode="indeterminate",
+                                           fg_color=c["surface"], progress_color=c["accent"])
+        self.progress.pack(fill="x", padx=12, pady=(0, 4))
 
         # Panel de resumen
-        summary_frame = tk.LabelFrame(frame, text=" Resumen ",
-                                      bg=c["bg"], fg=c["accent"],
-                                      font=("Segoe UI", 10, "bold"))
-        summary_frame.pack(fill=tk.X, padx=12, pady=4)
+        summary_frame = ctk.CTkFrame(frame, fg_color=c["surface"], corner_radius=8)
+        summary_frame.pack(fill="x", padx=12, pady=4)
+        ctk.CTkLabel(summary_frame, text=" Resumen ",
+                     text_color=c["accent"],
+                     font=ctk.CTkFont("Segoe UI", 10, "bold")
+                     ).grid(row=0, column=0, columnspan=4, sticky="w", padx=10, pady=(6, 2))
+
         self.summary_vars = {}
         fields = [
-            ("total_files", "Archivos totales"),
-            ("total_dirs", "Directorios"),
-            ("total_size_mb", "Tamaño total (MB)"),
+            ("total_files",      "Archivos totales"),
+            ("total_dirs",       "Directorios"),
+            ("total_size_mb",    "Tamaño total (MB)"),
             ("avg_file_size_kb", "Promedio por archivo (KB)"),
         ]
         for i, (key, label) in enumerate(fields):
-            tk.Label(summary_frame, text=f"{label}:", bg=c["bg"], fg=c["fg"],
-                     font=("Segoe UI", 9)).grid(row=i//2, column=(i%2)*2, sticky="w", padx=12, pady=2)
-            var = tk.StringVar(value="—")
+            row_i = i // 2 + 1
+            col_i = (i % 2) * 2
+            ctk.CTkLabel(summary_frame, text=f"{label}:",
+                         text_color=c["fg"],
+                         font=ctk.CTkFont("Segoe UI", 9)
+                         ).grid(row=row_i, column=col_i, sticky="w", padx=12, pady=2)
+            var = ctk.StringVar(value="—")
             self.summary_vars[key] = var
-            tk.Label(summary_frame, textvariable=var, bg=c["bg"], fg=c["accent"],
-                     font=("Segoe UI", 10, "bold")).grid(row=i//2, column=(i%2)*2+1, sticky="w", padx=4)
+            ctk.CTkLabel(summary_frame, textvariable=var,
+                         text_color=c["accent"],
+                         font=ctk.CTkFont("Segoe UI", 10, "bold")
+                         ).grid(row=row_i, column=col_i + 1, sticky="w", padx=4)
 
         # Score
-        score_frame = tk.Frame(frame, bg=c["bg"])
-        score_frame.pack(fill=tk.X, padx=12, pady=4)
-        tk.Label(score_frame, text="Governance Score:", bg=c["bg"], fg=c["fg"],
-                 font=("Segoe UI", 11, "bold")).pack(side=tk.LEFT)
-        self.score_var = tk.StringVar(value="—")
-        tk.Label(score_frame, textvariable=self.score_var, bg=c["bg"], fg=c["accent"],
-                 font=("Segoe UI", 20, "bold")).pack(side=tk.LEFT, padx=12)
+        score_frame = ctk.CTkFrame(frame, fg_color=c["bg"])
+        score_frame.pack(fill="x", padx=12, pady=4)
+        ctk.CTkLabel(score_frame, text="Governance Score:",
+                     text_color=c["fg"],
+                     font=ctk.CTkFont("Segoe UI", 11, "bold")
+                     ).pack(side="left")
+        self.score_var = ctk.StringVar(value="—")
+        self.score_lbl = ctk.CTkLabel(score_frame, textvariable=self.score_var,
+                                      text_color=c["accent"],
+                                      font=ctk.CTkFont("Segoe UI", 20, "bold"))
+        self.score_lbl.pack(side="left", padx=12)
 
         # Archivos grandes
-        tk.Label(frame, text="Archivos más grandes:", bg=c["bg"], fg=c["fg"],
-                 font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=14, pady=(8,0))
+        ctk.CTkLabel(frame, text="Archivos más grandes:",
+                     text_color=c["fg"],
+                     font=ctk.CTkFont("Segoe UI", 10, "bold")
+                     ).pack(anchor="w", padx=14, pady=(8, 0))
         cols = ("Nombre", "Tamaño (MB)", "Ruta")
         self.tree = ttk.Treeview(frame, columns=cols, show="headings", height=10)
         for col in cols:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=300 if col == "Ruta" else 180)
-        self.tree.pack(fill=tk.BOTH, expand=True, padx=12)
+        self.tree.pack(fill="both", expand=True, padx=12)
 
-        btns = tk.Frame(frame, bg=c["bg"])
-        btns.pack(fill=tk.X, padx=12, pady=8)
+        btns = ctk.CTkFrame(frame, fg_color=c["bg"])
+        btns.pack(fill="x", padx=12, pady=8)
         for fmt in ("CSV", "Excel", "JSON"):
-            tk.Button(btns, text=f"Exportar {fmt}", bg=c["surface"], fg=c["fg"],
-                      relief="flat", command=lambda f=fmt.lower(): self._export(f)
-                      ).pack(side=tk.LEFT, padx=4)
+            ctk.CTkButton(btns, text=f"Exportar {fmt}", width=110,
+                          fg_color=c["surface"], text_color=c["fg"],
+                          hover_color=c["accent"],
+                          command=lambda f=fmt.lower(): self._export(f)
+                          ).pack(side="left", padx=4)
 
     def _browse(self):
         path = filedialog.askdirectory()
@@ -113,10 +136,11 @@ class AnalysisTab:
         sc = score["score"]
         color = "#a6e3a1" if sc >= 70 else ("#f9e2af" if sc >= 40 else "#f38ba8")
         self.score_var.set(f"{sc}/100")
+        self.score_lbl.configure(text_color=color)
         for row in self.tree.get_children():
             self.tree.delete(row)
         for f in large[:30]:
-            self.tree.insert("", tk.END, values=(
+            self.tree.insert("", "end", values=(
                 f["name"],
                 round(f["size"] / 1024 / 1024, 1),
                 f["path"]

@@ -1,7 +1,7 @@
 """
-Governance-Suite — Tab GUI: Auditoría de permisos
+Governance-Suite — Tab GUI: Auditoría de permisos (customtkinter)
 """
-import tkinter as tk
+import customtkinter as ctk
 from tkinter import ttk, filedialog, messagebox
 from threading import Thread
 from core.permission import audit_path
@@ -18,30 +18,36 @@ class PermissionsTab:
         c = self.colors
         frame = self.parent
 
-        ctrl = tk.Frame(frame, bg=c["bg"], pady=10)
-        ctrl.pack(fill=tk.X, padx=12)
+        ctrl = ctk.CTkFrame(frame, fg_color=c["bg"])
+        ctrl.pack(fill="x", padx=12, pady=10)
 
-        tk.Label(ctrl, text="Ruta:", bg=c["bg"], fg=c["fg"]).grid(row=0, column=0, padx=(0,6))
-        self.path_var = tk.StringVar()
-        tk.Entry(ctrl, textvariable=self.path_var, width=55,
-                 bg=c["surface"], fg=c["fg"], relief="flat").grid(row=0, column=1, padx=(0,6))
-        tk.Button(ctrl, text="Examinar", bg=c["surface"], fg=c["fg"],
-                  relief="flat", command=self._browse).grid(row=0, column=2, padx=(0,12))
+        ctk.CTkLabel(ctrl, text="Ruta:", text_color=c["fg"]).grid(row=0, column=0, padx=(0, 6))
+        self.path_var = ctk.StringVar()
+        ctk.CTkEntry(ctrl, textvariable=self.path_var, width=380,
+                     fg_color=c["surface"], text_color=c["fg"]
+                     ).grid(row=0, column=1, padx=(0, 6))
+        ctk.CTkButton(ctrl, text="Examinar", width=90,
+                      fg_color=c["surface"], text_color=c["fg"],
+                      hover_color=c["accent"],
+                      command=self._browse).grid(row=0, column=2, padx=(0, 12))
 
-        self.recursive_var = tk.BooleanVar(value=True)
-        self.files_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(ctrl, text="Recursivo", variable=self.recursive_var,
-                       bg=c["bg"], fg=c["fg"], selectcolor=c["surface"],
-                       activebackground=c["bg"]).grid(row=0, column=3)
-        tk.Checkbutton(ctrl, text="Incluir archivos", variable=self.files_var,
-                       bg=c["bg"], fg=c["fg"], selectcolor=c["surface"],
-                       activebackground=c["bg"]).grid(row=0, column=4, padx=8)
-        tk.Button(ctrl, text="  ▶  Auditar", bg=c["accent"], fg="#1e1e2e",
-                  font=("Segoe UI", 10, "bold"), relief="flat",
-                  command=self._start).grid(row=0, column=5, padx=(12,0))
+        self.recursive_var = ctk.BooleanVar(value=True)
+        self.files_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(ctrl, text="Recursivo", variable=self.recursive_var,
+                        text_color=c["fg"], fg_color=c["accent"],
+                        hover_color=c["surface"]).grid(row=0, column=3)
+        ctk.CTkCheckBox(ctrl, text="Incluir archivos", variable=self.files_var,
+                        text_color=c["fg"], fg_color=c["accent"],
+                        hover_color=c["surface"]).grid(row=0, column=4, padx=8)
+        ctk.CTkButton(ctrl, text="  ▶  Auditar",
+                      fg_color=c["accent"], text_color="#1e1e2e",
+                      font=ctk.CTkFont("Segoe UI", 10, "bold"),
+                      hover_color="#74c7ec",
+                      command=self._start).grid(row=0, column=5, padx=(12, 0))
 
-        self.progress = ttk.Progressbar(frame, mode="indeterminate")
-        self.progress.pack(fill=tk.X, padx=12, pady=(0,4))
+        self.progress = ctk.CTkProgressBar(frame, mode="indeterminate",
+                                           fg_color=c["surface"], progress_color=c["accent"])
+        self.progress.pack(fill="x", padx=12, pady=(0, 4))
 
         cols = ("Ruta", "Cuenta/Propietario", "Lectura", "Escritura", "Control Total")
         self.tree = ttk.Treeview(frame, columns=cols, show="headings", height=20)
@@ -51,19 +57,22 @@ class PermissionsTab:
             self.tree.column(col, width=w)
         vsb = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(12,0))
-        vsb.pack(side=tk.RIGHT, fill=tk.Y, padx=(0,12))
+        self.tree.pack(side="left", fill="both", expand=True, padx=(12, 0))
+        vsb.pack(side="right", fill="y", padx=(0, 12))
 
-        btns = tk.Frame(frame, bg=c["bg"])
-        btns.pack(fill=tk.X, padx=12, pady=8)
+        btns = ctk.CTkFrame(frame, fg_color=c["bg"])
+        btns.pack(fill="x", padx=12, pady=8)
         for fmt in ("CSV", "Excel", "JSON"):
-            tk.Button(btns, text=f"Exportar {fmt}", bg=c["surface"], fg=c["fg"],
-                      relief="flat", command=lambda f=fmt.lower(): self._export(f)
-                      ).pack(side=tk.LEFT, padx=4)
+            ctk.CTkButton(btns, text=f"Exportar {fmt}", width=110,
+                          fg_color=c["surface"], text_color=c["fg"],
+                          hover_color=c["accent"],
+                          command=lambda f=fmt.lower(): self._export(f)
+                          ).pack(side="left", padx=4)
 
-        self.status_var = tk.StringVar(value="Esperando...")
-        tk.Label(btns, textvariable=self.status_var, bg=c["bg"], fg="#6c7086",
-                 font=("Segoe UI", 9)).pack(side=tk.RIGHT)
+        self.status_var = ctk.StringVar(value="Esperando...")
+        ctk.CTkLabel(btns, textvariable=self.status_var,
+                     text_color="#6c7086",
+                     font=ctk.CTkFont("Segoe UI", 9)).pack(side="right")
 
     def _browse(self):
         path = filedialog.askdirectory()
@@ -100,7 +109,7 @@ class PermissionsTab:
             read = "✅" if r.get("readable") or r.get("read") else "❌"
             write = "✅" if r.get("writable") or r.get("write") else "❌"
             fc = "✅" if r.get("full_control") else "❌"
-            self.tree.insert("", tk.END, values=(
+            self.tree.insert("", "end", values=(
                 r.get("path", ""), account, read, write, fc
             ))
         self.status_var.set(f"{len(self.results)} entradas auditadas")

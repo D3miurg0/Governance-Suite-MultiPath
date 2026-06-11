@@ -1,11 +1,16 @@
 """
-Governance-Suite — Tab GUI: Escaneo de servidores
+Governance-Suite — Tab GUI: Escaneo de servidores (customtkinter)
 """
-import tkinter as tk
+import customtkinter as ctk
 from tkinter import ttk, filedialog, messagebox
 from threading import Thread
 from core.scanner import scan_directory
 from core.exporter import auto_export
+
+_BG      = "#1e1e2e"
+_FG      = "#cdd6f4"
+_ACCENT  = "#89b4fa"
+_SURFACE = "#313244"
 
 
 class ScanTab:
@@ -19,54 +24,62 @@ class ScanTab:
         frame = self.parent
 
         # Controles superiores
-        ctrl = tk.Frame(frame, bg=c["bg"], pady=10)
-        ctrl.pack(fill=tk.X, padx=12)
+        ctrl = ctk.CTkFrame(frame, fg_color=c["bg"])
+        ctrl.pack(fill="x", padx=12, pady=10)
 
-        tk.Label(ctrl, text="Ruta:", bg=c["bg"], fg=c["fg"],
-                 font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", padx=(0,6))
-        self.path_var = tk.StringVar()
-        tk.Entry(ctrl, textvariable=self.path_var, width=55,
-                 bg=c["surface"], fg=c["fg"], insertbackground=c["fg"],
-                 relief="flat", font=("Segoe UI", 10)).grid(row=0, column=1, padx=(0,6))
-        tk.Button(ctrl, text="Examinar", bg=c["surface"], fg=c["fg"],
-                  relief="flat", command=self._browse).grid(row=0, column=2, padx=(0,12))
+        ctk.CTkLabel(ctrl, text="Ruta:", text_color=c["fg"],
+                     font=ctk.CTkFont("Segoe UI", 10)).grid(row=0, column=0, sticky="w", padx=(0, 6))
 
-        self.recursive_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(ctrl, text="Recursivo", variable=self.recursive_var,
-                       bg=c["bg"], fg=c["fg"], selectcolor=c["surface"],
-                       activebackground=c["bg"]).grid(row=0, column=3, padx=6)
+        self.path_var = ctk.StringVar()
+        ctk.CTkEntry(ctrl, textvariable=self.path_var, width=380,
+                     fg_color=c["surface"], text_color=c["fg"]
+                     ).grid(row=0, column=1, padx=(0, 6))
+        ctk.CTkButton(ctrl, text="Examinar", width=90,
+                      fg_color=c["surface"], text_color=c["fg"],
+                      hover_color=c["accent"],
+                      command=self._browse).grid(row=0, column=2, padx=(0, 12))
 
-        tk.Button(ctrl, text="  ▶  Escanear", bg=c["accent"], fg="#1e1e2e",
-                  font=("Segoe UI", 10, "bold"), relief="flat",
-                  command=self._start_scan).grid(row=0, column=4, padx=(12,0))
+        self.recursive_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(ctrl, text="Recursivo", variable=self.recursive_var,
+                        text_color=c["fg"], fg_color=c["accent"],
+                        hover_color=c["surface"]).grid(row=0, column=3, padx=6)
+
+        ctk.CTkButton(ctrl, text="  ▶  Escanear",
+                      fg_color=c["accent"], text_color="#1e1e2e",
+                      font=ctk.CTkFont("Segoe UI", 10, "bold"),
+                      hover_color="#74c7ec",
+                      command=self._start_scan).grid(row=0, column=4, padx=(12, 0))
 
         # Barra de progreso
-        self.progress = ttk.Progressbar(frame, mode="indeterminate")
-        self.progress.pack(fill=tk.X, padx=12, pady=(0,4))
+        self.progress = ctk.CTkProgressBar(frame, mode="indeterminate",
+                                           fg_color=c["surface"], progress_color=c["accent"])
+        self.progress.pack(fill="x", padx=12, pady=(0, 4))
 
-        # Tabla de resultados
+        # Tabla de resultados (ttk.Treeview no tiene reemplazo directo en CTk)
         cols = ("Nombre", "Tipo", "Tamaño (KB)", "Modificado", "Ruta")
         self.tree = ttk.Treeview(frame, columns=cols, show="headings", height=20)
         for col in cols:
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=140 if col not in ("Ruta",) else 300)
+            self.tree.column(col, width=140 if col != "Ruta" else 300)
         vsb = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(12,0))
-        vsb.pack(side=tk.RIGHT, fill=tk.Y, padx=(0,12))
+        self.tree.pack(side="left", fill="both", expand=True, padx=(12, 0))
+        vsb.pack(side="right", fill="y", padx=(0, 12))
 
         # Botones inferiores
-        btns = tk.Frame(frame, bg=c["bg"])
-        btns.pack(fill=tk.X, padx=12, pady=8)
+        btns = ctk.CTkFrame(frame, fg_color=c["bg"])
+        btns.pack(fill="x", padx=12, pady=8)
         for fmt in ("CSV", "Excel", "JSON"):
-            tk.Button(btns, text=f"Exportar {fmt}", bg=c["surface"], fg=c["fg"],
-                      relief="flat", command=lambda f=fmt.lower(): self._export(f)
-                      ).pack(side=tk.LEFT, padx=4)
+            ctk.CTkButton(btns, text=f"Exportar {fmt}", width=110,
+                          fg_color=c["surface"], text_color=c["fg"],
+                          hover_color=c["accent"],
+                          command=lambda f=fmt.lower(): self._export(f)
+                          ).pack(side="left", padx=4)
 
-        self.status_var = tk.StringVar(value="Esperando...")
-        tk.Label(btns, textvariable=self.status_var,
-                 bg=c["bg"], fg="#6c7086", font=("Segoe UI", 9)
-                 ).pack(side=tk.RIGHT)
+        self.status_var = ctk.StringVar(value="Esperando...")
+        ctk.CTkLabel(btns, textvariable=self.status_var,
+                     text_color="#6c7086",
+                     font=ctk.CTkFont("Segoe UI", 9)).pack(side="right")
 
     def _browse(self):
         path = filedialog.askdirectory()
@@ -88,20 +101,23 @@ class ScanTab:
         recursive = self.recursive_var.get()
         try:
             self.results = list(scan_directory(path, recursive=recursive))
-            self.parent.after(0, self._populate_tree)
+            self.parent.after(0, self._populate)
         except Exception as e:
             self.parent.after(0, lambda: messagebox.showerror("Error", str(e)))
         finally:
             self.parent.after(0, self.progress.stop)
+            self.parent.after(0, lambda: self.status_var.set(
+                f"{len(self.results)} archivos encontrados"))
 
-    def _populate_tree(self):
-        for item in self.results[:2000]:  # Límite visual
-            tipo = "Carpeta" if item["is_dir"] else "Archivo"
-            size = round(item["size"] / 1024, 1) if not item["is_dir"] else ""
-            self.tree.insert("", tk.END, values=(
-                item["name"], tipo, size, item["modified"][:10], item["path"]
+    def _populate(self):
+        for item in self.results[:5000]:
+            self.tree.insert("", "end", values=(
+                item.get("name", ""),
+                item.get("type", ""),
+                round(item.get("size", 0) / 1024, 1),
+                item.get("modified", ""),
+                item.get("path", ""),
             ))
-        self.status_var.set(f"{len(self.results)} elementos encontrados")
 
     def _export(self, fmt):
         if not self.results:
