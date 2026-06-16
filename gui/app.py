@@ -19,12 +19,17 @@ _SURFACE = "#313244"
 
 class GovernanceApp:
     def __init__(self):
+        from core.audit import AuditCore
+        self.core = AuditCore()
+        self.core.create_session_folder()
+
         self.root = ctk.CTk()
         self.root.title(f"{APP_NAME}  v{VERSION}")
         w, h = (int(x) for x in GUI_WINDOW_SIZE.split("x"))
         self.root.geometry(f"{w}x{h}")
         self.root.minsize(*GUI_MIN_SIZE)
         self._load_icon()
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self._colors = {"bg": _BG, "fg": _FG, "accent": _ACCENT, "surface": _SURFACE}
         self._build_ui()
 
@@ -81,23 +86,28 @@ class GovernanceApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=8, pady=(4, 8))
 
-        from gui.tab_scan        import ScanTab
-        from gui.tab_migration   import MigrationTab
-        from gui.tab_permissions import PermissionsTab
-        from gui.tab_analysis    import AnalysisTab
-        from gui.tab_reports     import ReportsTab
+        from gui.tab_scan           import ScanTab
+        from gui.tab_migration      import MigrationTab
+        from gui.tab_permissions    import PermissionsTab
+        from gui.tab_access_control import AccessControlTab
+        from gui.tab_analysis       import AnalysisTab
+        from gui.tab_reports        import ReportsTab
 
         tabs = [
-            ("  \U0001f50d  Escaneo",   ScanTab),
-            ("  \U0001f4c2  Migracion", MigrationTab),
-            ("  \U0001f512  Permisos",  PermissionsTab),
-            ("  \U0001f4ca  Analisis",  AnalysisTab),
-            ("  \U0001f4c4  Reportes",  ReportsTab),
+            ("  \U0001f50d  Escaneo",     ScanTab, False),
+            ("  \U0001f4c2  Migracion",   MigrationTab, False),
+            ("  \U0001f512  Permisos",    PermissionsTab, False),
+            ("  \U0001f6e1  Ctrl Acceso", AccessControlTab, True),
+            ("  \U0001f4ca  Analisis",    AnalysisTab, False),
+            ("  \U0001f4c4  Reportes",    ReportsTab, False),
         ]
-        for label, TabClass in tabs:
+        for label, TabClass, needs_core in tabs:
             frame = ttk.Frame(self.notebook)
             self.notebook.add(frame, text=label)
-            TabClass(frame, self._colors).build()
+            if needs_core:
+                TabClass(frame, self._colors, self.core).build()
+            else:
+                TabClass(frame, self._colors).build()
 
         # Status bar
         self.status_var = tk.StringVar(value="Listo")
@@ -111,3 +121,7 @@ class GovernanceApp:
 
     def run(self):
         self.root.mainloop()
+
+    def _on_close(self):
+        self.core.cleanup_session()
+        self.root.destroy()

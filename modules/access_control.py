@@ -392,12 +392,14 @@ class AccessControlModule:
                 if str(sid) == str_target and not is_inherited:
                     removed += 1
                     continue    # Saltar este ACE → queda revocado
-                new_dacl.AddAccessAllowedAceEx(
-                    win32security.ACL_REVISION, ace_flags, mask, sid
-                ) if ace_type == con.ACCESS_ALLOWED_ACE_TYPE else \
-                new_dacl.AddAccessDeniedAceEx(
-                    win32security.ACL_REVISION, ace_flags, mask, sid
-                )
+                if ace_type == con.ACCESS_ALLOWED_ACE_TYPE:
+                    new_dacl.AddAccessAllowedAceEx(
+                        win32security.ACL_REVISION, ace_flags, mask, sid
+                    )
+                elif ace_type == con.ACCESS_DENIED_ACE_TYPE:
+                    new_dacl.AddAccessDeniedAceEx(
+                        win32security.ACL_REVISION, ace_flags, mask, sid
+                    )
 
             self._set_dacl(long_path, sd, new_dacl)
 
@@ -456,7 +458,7 @@ class AccessControlModule:
                     new_dacl.AddAccessAllowedAceEx(
                         win32security.ACL_REVISION, ace_flags, mask, sid
                     )
-                else:
+                elif ace_type == con.ACCESS_DENIED_ACE_TYPE:
                     new_dacl.AddAccessDeniedAceEx(
                         win32security.ACL_REVISION, ace_flags, mask, sid
                     )

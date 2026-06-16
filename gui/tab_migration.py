@@ -1,10 +1,11 @@
 """
-Governance-Suite — Tab GUI: Migración de archivos (Multi-Path)
+Governance-Suite — Tab GUI: Migración de archivos (Multi-Path - CustomTkinter)
 Permite configurar N pares Origen→Destino y ejecutarlos en paralelo o secuencial.
 Soporta filtro por año o rango de fechas de modificación.
 """
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog, messagebox
+import customtkinter as ctk
 from threading import Thread, Lock
 from datetime import datetime
 from core.migration import migrate_multi_paths
@@ -16,58 +17,67 @@ from core.exporter import auto_export
 # ---------------------------------------------------------------------------
 
 class _PathRow:
-    """Widget compuesto que representa un par Origen / Destino."""
+    """Widget compuesto que representa un par Origen / Destino en CustomTkinter."""
 
-    def __init__(self, container: tk.Frame, idx: int, colors: dict, on_remove):
+    def __init__(self, container, idx: int, colors: dict, on_remove):
         self.colors = c = colors
         self.idx = idx
 
-        self.frame = tk.Frame(container, bg=c["bg"])
-        self.frame.pack(fill=tk.X, padx=4, pady=2)
+        self.frame = ctk.CTkFrame(container, fg_color=c["bg"], corner_radius=0)
+        self.frame.pack(fill="x", padx=4, pady=2)
 
         # Número de ruta
-        self.lbl_idx = tk.Label(
-            self.frame, text=f"#{idx + 1}", width=3, anchor="e",
-            bg=c["bg"], fg=c["fg"], font=("Segoe UI", 8)
+        self.lbl_idx = ctk.CTkLabel(
+            self.frame, text=f"#{idx + 1}", width=30, anchor="e",
+            text_color=c["fg"], font=ctk.CTkFont("Segoe UI", 11)
         )
-        self.lbl_idx.pack(side=tk.LEFT)
+        self.lbl_idx.pack(side="left")
 
         # Origen
-        self.src_var = tk.StringVar()
-        src_entry = tk.Entry(
-            self.frame, textvariable=self.src_var, width=34,
-            bg=c["surface"], fg=c["fg"], relief="flat"
+        self.src_var = ctk.StringVar()
+        self.src_entry = ctk.CTkEntry(
+            self.frame, textvariable=self.src_var, width=280,
+            fg_color=c["surface"], text_color=c["fg"], border_width=0
         )
-        src_entry.pack(side=tk.LEFT, padx=(4, 2))
-        tk.Button(
-            self.frame, text="…", bg=c["surface"], fg=c["fg"], relief="flat", width=2,
+        self.src_entry.pack(side="left", padx=(6, 2))
+        
+        self.btn_browse_src = ctk.CTkButton(
+            self.frame, text="…", fg_color=c["surface"], text_color=c["fg"],
+            hover_color=c["accent"], width=28, height=28,
             command=lambda: self._browse(self.src_var)
-        ).pack(side=tk.LEFT)
+        )
+        self.btn_browse_src.pack(side="left")
 
         # Flecha separadora
-        tk.Label(
-            self.frame, text="→", bg=c["bg"], fg=c["fg"], width=2
-        ).pack(side=tk.LEFT, padx=4)
+        self.lbl_arrow = ctk.CTkLabel(
+            self.frame, text="→", text_color=c["fg"], width=20
+        )
+        self.lbl_arrow.pack(side="left", padx=4)
 
         # Destino
-        self.dst_var = tk.StringVar()
-        dst_entry = tk.Entry(
-            self.frame, textvariable=self.dst_var, width=34,
-            bg=c["surface"], fg=c["fg"], relief="flat"
+        self.dst_var = ctk.StringVar()
+        self.dst_entry = ctk.CTkEntry(
+            self.frame, textvariable=self.dst_var, width=280,
+            fg_color=c["surface"], text_color=c["fg"], border_width=0
         )
-        dst_entry.pack(side=tk.LEFT, padx=(2, 2))
-        tk.Button(
-            self.frame, text="…", bg=c["surface"], fg=c["fg"], relief="flat", width=2,
+        self.dst_entry.pack(side="left", padx=(2, 2))
+        
+        self.btn_browse_dst = ctk.CTkButton(
+            self.frame, text="…", fg_color=c["surface"], text_color=c["fg"],
+            hover_color=c["accent"], width=28, height=28,
             command=lambda: self._browse(self.dst_var)
-        ).pack(side=tk.LEFT)
+        )
+        self.btn_browse_dst.pack(side="left")
 
         # Botón eliminar
-        tk.Button(
-            self.frame, text="✕", bg=c["bg"], fg="#ff6b6b", relief="flat",
+        self.btn_remove = ctk.CTkButton(
+            self.frame, text="✕", fg_color=c["bg"], text_color="#f38ba8",
+            hover_color=c["surface"], width=28, height=28,
             command=lambda: on_remove(self)
-        ).pack(side=tk.LEFT, padx=(6, 0))
+        )
+        self.btn_remove.pack(side="left", padx=(6, 0))
 
-    def _browse(self, var: tk.StringVar):
+    def _browse(self, var: ctk.StringVar):
         path = filedialog.askdirectory()
         if path:
             var.set(path)
@@ -109,147 +119,158 @@ class MigrationTab:
         pad = {"padx": 12, "pady": 4}
 
         # ── Sección de rutas ──────────────────────────────────────────
-        paths_lf = tk.LabelFrame(
-            frame, text=" Rutas de migración ",
-            bg=c["bg"], fg=c["fg"], relief="flat", font=("Segoe UI", 9)
-        )
-        paths_lf.pack(fill=tk.X, padx=12, pady=(8, 2))
+        paths_frame = ctk.CTkFrame(frame, fg_color=c["bg"])
+        paths_frame.pack(fill="x", padx=12, pady=(8, 2))
 
-        # Canvas + scrollbar para que la lista de rutas sea desplazable
-        self._canvas = tk.Canvas(paths_lf, bg=c["bg"], highlightthickness=0, height=110)
-        scrollbar = ttk.Scrollbar(paths_lf, orient="vertical", command=self._canvas.yview)
-        self._canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self._canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        ctk.CTkLabel(
+            paths_frame, text=" Rutas de migración (Multi-Path) ", text_color=c["accent"],
+            font=ctk.CTkFont("Segoe UI", 11, "bold")
+        ).pack(anchor="w", padx=6, pady=(4, 2))
 
-        self._rows_frame = tk.Frame(self._canvas, bg=c["bg"])
-        self._canvas_window = self._canvas.create_window(
-            (0, 0), window=self._rows_frame, anchor="nw"
+        # CTkScrollableFrame reemplaza Canvas + Scrollbar manual
+        self.scroll_frame = ctk.CTkScrollableFrame(
+            paths_frame, height=120, fg_color=c["bg"],
+            scrollbar_button_color=c["surface"],
+            scrollbar_button_hover_color=c["accent"]
         )
-        self._rows_frame.bind(
-            "<Configure>",
-            lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all"))
-        )
-        self._canvas.bind(
-            "<Configure>",
-            lambda e: self._canvas.itemconfig(self._canvas_window, width=e.width)
-        )
+        self.scroll_frame.pack(fill="both", expand=True, padx=4, pady=4)
 
         # Botón agregar ruta
-        add_row = tk.Frame(paths_lf, bg=c["bg"])
-        add_row.pack(fill=tk.X, padx=4, pady=(2, 4))
-        tk.Button(
-            add_row, text="+ Agregar ruta", bg=c["surface"], fg=c["fg"],
-            relief="flat", font=("Segoe UI", 9),
+        add_row_frame = ctk.CTkFrame(paths_frame, fg_color=c["bg"])
+        add_row_frame.pack(fill="x", padx=4, pady=(2, 4))
+        
+        self.btn_add = ctk.CTkButton(
+            add_row_frame, text="+ Agregar ruta", fg_color=c["surface"], text_color=c["fg"],
+            hover_color=c["accent"], font=ctk.CTkFont("Segoe UI", 11), width=120,
             command=self._add_row
-        ).pack(side=tk.LEFT, padx=4)
+        )
+        self.btn_add.pack(side="left", padx=4)
 
         # Agregar la primera fila por defecto
         self._add_row()
 
         # ── Modo de ejecución ─────────────────────────────────────────
-        mode_frame = tk.Frame(frame, bg=c["bg"])
-        mode_frame.pack(fill=tk.X, **pad)
-        self.parallel_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(
+        mode_frame = ctk.CTkFrame(frame, fg_color=c["bg"])
+        mode_frame.pack(fill="x", **pad)
+        
+        self.parallel_var = ctk.BooleanVar(value=True)
+        self.chk_parallel = ctk.CTkCheckBox(
             mode_frame, text="Ejecutar rutas en paralelo",
             variable=self.parallel_var,
-            bg=c["bg"], fg=c["fg"], selectcolor=c["surface"],
-            activebackground=c["bg"]
-        ).pack(side=tk.LEFT, padx=8)
+            text_color=c["fg"], fg_color=c["accent"], hover_color=c["surface"]
+        )
+        self.chk_parallel.pack(side="left", padx=8)
 
         # ── Filtro por fecha ──────────────────────────────────────────
-        date_frame = tk.LabelFrame(
-            frame, text=" Filtro por fecha de modificación ",
-            bg=c["bg"], fg=c["fg"], relief="flat", font=("Segoe UI", 9)
-        )
-        date_frame.pack(fill=tk.X, padx=12, pady=(6, 2))
+        date_frame = ctk.CTkFrame(frame, fg_color=c["surface"], corner_radius=8)
+        date_frame.pack(fill="x", padx=12, pady=(6, 2))
 
-        year_row = tk.Frame(date_frame, bg=c["bg"])
-        year_row.pack(fill=tk.X, padx=8, pady=3)
-        self.year_enabled = tk.BooleanVar(value=False)
-        tk.Checkbutton(
+        ctk.CTkLabel(
+            date_frame, text=" Filtro por fecha de modificación ", text_color=c["accent"],
+            font=ctk.CTkFont("Segoe UI", 11, "bold")
+        ).pack(anchor="w", padx=10, pady=(6, 2))
+
+        year_row = ctk.CTkFrame(date_frame, fg_color=c["surface"])
+        year_row.pack(fill="x", padx=8, pady=3)
+        
+        self.year_enabled = ctk.BooleanVar(value=False)
+        self.chk_year = ctk.CTkCheckBox(
             year_row, text="Solo año:", variable=self.year_enabled,
-            bg=c["bg"], fg=c["fg"], selectcolor=c["surface"],
-            activebackground=c["bg"], command=self._toggle_date_fields
-        ).pack(side=tk.LEFT)
-        self.year_var = tk.StringVar(value=str(datetime.now().year))
-        self.year_entry = tk.Entry(
-            year_row, textvariable=self.year_var, width=8,
-            bg=c["surface"], fg=c["fg"], relief="flat", state="disabled"
+            text_color=c["fg"], fg_color=c["accent"], hover_color=c["surface"],
+            command=self._toggle_date_fields
         )
-        self.year_entry.pack(side=tk.LEFT, padx=6)
+        self.chk_year.pack(side="left", padx=8)
+        
+        self.year_var = ctk.StringVar(value=str(datetime.now().year))
+        self.year_entry = ctk.CTkEntry(
+            year_row, textvariable=self.year_var, width=80,
+            fg_color=c["bg"], text_color=c["fg"], border_width=0, state="disabled"
+        )
+        self.year_entry.pack(side="left", padx=6)
 
-        range_row = tk.Frame(date_frame, bg=c["bg"])
-        range_row.pack(fill=tk.X, padx=8, pady=(0, 4))
-        self.range_enabled = tk.BooleanVar(value=False)
-        tk.Checkbutton(
+        range_row = ctk.CTkFrame(date_frame, fg_color=c["surface"])
+        range_row.pack(fill="x", padx=8, pady=(0, 6))
+        
+        self.range_enabled = ctk.BooleanVar(value=False)
+        self.chk_range = ctk.CTkCheckBox(
             range_row, text="Rango:", variable=self.range_enabled,
-            bg=c["bg"], fg=c["fg"], selectcolor=c["surface"],
-            activebackground=c["bg"], command=self._toggle_date_fields
-        ).pack(side=tk.LEFT)
-        tk.Label(
-            range_row, text="Desde (YYYY-MM-DD):",
-            bg=c["bg"], fg=c["fg"], font=("Segoe UI", 9)
-        ).pack(side=tk.LEFT, padx=(12, 2))
-        self.date_from_var = tk.StringVar()
-        self.date_from_entry = tk.Entry(
-            range_row, textvariable=self.date_from_var, width=12,
-            bg=c["surface"], fg=c["fg"], relief="flat", state="disabled"
+            text_color=c["fg"], fg_color=c["accent"], hover_color=c["surface"],
+            command=self._toggle_date_fields
         )
-        self.date_from_entry.pack(side=tk.LEFT, padx=4)
-        tk.Label(
-            range_row, text="Hasta:",
-            bg=c["bg"], fg=c["fg"], font=("Segoe UI", 9)
-        ).pack(side=tk.LEFT, padx=(8, 2))
-        self.date_to_var = tk.StringVar()
-        self.date_to_entry = tk.Entry(
-            range_row, textvariable=self.date_to_var, width=12,
-            bg=c["surface"], fg=c["fg"], relief="flat", state="disabled"
+        self.chk_range.pack(side="left", padx=8)
+        
+        ctk.CTkLabel(
+            range_row, text="Desde (YYYY-MM-DD):", text_color=c["fg"],
+            font=ctk.CTkFont("Segoe UI", 11)
+        ).pack(side="left", padx=(12, 2))
+        
+        self.date_from_var = ctk.StringVar()
+        self.date_from_entry = ctk.CTkEntry(
+            range_row, textvariable=self.date_from_var, width=110,
+            fg_color=c["bg"], text_color=c["fg"], border_width=0, state="disabled"
         )
-        self.date_to_entry.pack(side=tk.LEFT, padx=4)
+        self.date_from_entry.pack(side="left", padx=4)
+        
+        ctk.CTkLabel(
+            range_row, text="Hasta:", text_color=c["fg"],
+            font=ctk.CTkFont("Segoe UI", 11)
+        ).pack(side="left", padx=(8, 2))
+        
+        self.date_to_var = ctk.StringVar()
+        self.date_to_entry = ctk.CTkEntry(
+            range_row, textvariable=self.date_to_var, width=110,
+            fg_color=c["bg"], text_color=c["fg"], border_width=0, state="disabled"
+        )
+        self.date_to_entry.pack(side="left", padx=4)
 
         # ── Opciones generales ────────────────────────────────────────
-        opts = tk.Frame(frame, bg=c["bg"])
-        opts.pack(fill=tk.X, **pad)
-        self.verify_var    = tk.BooleanVar(value=True)
-        self.overwrite_var = tk.BooleanVar(value=False)
-        self.sync_var      = tk.BooleanVar(value=False)
-        tk.Checkbutton(
+        opts = ctk.CTkFrame(frame, fg_color=c["bg"])
+        opts.pack(fill="x", **pad)
+        
+        self.verify_var    = ctk.BooleanVar(value=True)
+        self.overwrite_var = ctk.BooleanVar(value=False)
+        self.sync_var      = ctk.BooleanVar(value=False)
+        
+        ctk.CTkCheckBox(
             opts, text="Verificar integridad", variable=self.verify_var,
-            bg=c["bg"], fg=c["fg"], selectcolor=c["surface"],
-            activebackground=c["bg"]
-        ).pack(side=tk.LEFT, padx=8)
-        tk.Checkbutton(
+            text_color=c["fg"], fg_color=c["accent"], hover_color=c["surface"]
+        ).pack(side="left", padx=8)
+        
+        ctk.CTkCheckBox(
             opts, text="Sobrescribir existentes", variable=self.overwrite_var,
-            bg=c["bg"], fg=c["fg"], selectcolor=c["surface"],
-            activebackground=c["bg"]
-        ).pack(side=tk.LEFT, padx=8)
-        tk.Checkbutton(
+            text_color=c["fg"], fg_color=c["accent"], hover_color=c["surface"]
+        ).pack(side="left", padx=8)
+        
+        ctk.CTkCheckBox(
             opts, text="Solo actualizar más nuevos", variable=self.sync_var,
-            bg=c["bg"], fg=c["fg"], selectcolor=c["surface"],
-            activebackground=c["bg"]
-        ).pack(side=tk.LEFT, padx=8)
+            text_color=c["fg"], fg_color=c["accent"], hover_color=c["surface"]
+        ).pack(side="left", padx=8)
 
         # ── Botón iniciar ─────────────────────────────────────────────
-        self._start_btn = tk.Button(
+        self._start_btn = ctk.CTkButton(
             frame, text="  ▶  Iniciar migración",
-            bg=c["accent"], fg="#1e1e2e",
-            font=("Segoe UI", 10, "bold"), relief="flat",
+            fg_color=c["accent"], text_color="#1e1e2e",
+            font=ctk.CTkFont("Segoe UI", 11, "bold"),
+            hover_color="#74c7ec",
             command=self._start
         )
         self._start_btn.pack(pady=8)
 
         # ── Progreso global ───────────────────────────────────────────
-        pb_frame = tk.Frame(frame, bg=c["bg"])
-        pb_frame.pack(fill=tk.X, padx=12, pady=(0, 2))
-        self.progress = ttk.Progressbar(pb_frame, mode="indeterminate", maximum=100)
-        self.progress.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.progress_label = tk.Label(
-            pb_frame, text="", bg=c["bg"], fg=c["fg"],
-            font=("Segoe UI", 9), width=22, anchor="e"
+        pb_frame = ctk.CTkFrame(frame, fg_color=c["bg"])
+        pb_frame.pack(fill="x", padx=12, pady=(0, 2))
+        
+        self.progress = ctk.CTkProgressBar(
+            pb_frame, mode="determinate", fg_color=c["surface"], progress_color=c["accent"]
         )
-        self.progress_label.pack(side=tk.LEFT, padx=(6, 0))
+        self.progress.pack(side="left", fill="x", expand=True)
+        self.progress.set(0)
+        
+        self.progress_label = ctk.CTkLabel(
+            pb_frame, text="", text_color=c["fg"],
+            font=ctk.CTkFont("Segoe UI", 11), width=150, anchor="e"
+        )
+        self.progress_label.pack(side="left", padx=(6, 0))
 
         # ── Log ───────────────────────────────────────────────────────
         self.log = tk.Text(
@@ -266,14 +287,14 @@ class MigrationTab:
         self.log.tag_configure("header",  foreground="#cba6f7", font=("Consolas", 9, "bold"))
 
         # ── Exportar ──────────────────────────────────────────────────
-        btns = tk.Frame(frame, bg=c["bg"])
-        btns.pack(fill=tk.X, padx=12, pady=6)
+        btns = ctk.CTkFrame(frame, fg_color=c["bg"])
+        btns.pack(fill="x", padx=12, pady=6)
         for fmt in ("CSV", "Excel", "JSON"):
-            tk.Button(
-                btns, text=f"Exportar {fmt}", bg=c["surface"], fg=c["fg"],
-                relief="flat",
+            ctk.CTkButton(
+                btns, text=f"Exportar {fmt}", fg_color=c["surface"], text_color=c["fg"],
+                hover_color=c["accent"], width=110,
                 command=lambda f=fmt.lower(): self._export(f)
-            ).pack(side=tk.LEFT, padx=4)
+            ).pack(side="left", padx=4)
 
     # ------------------------------------------------------------------
     # Gestión de filas
@@ -281,9 +302,8 @@ class MigrationTab:
 
     def _add_row(self):
         idx = len(self._rows)
-        row = _PathRow(self._rows_frame, idx, self.colors, self._remove_row)
+        row = _PathRow(self.scroll_frame, idx, self.colors, self._remove_row)
         self._rows.append(row)
-        self._refresh_canvas()
 
     def _remove_row(self, row: "_PathRow"):
         if len(self._rows) == 1:
@@ -293,11 +313,6 @@ class MigrationTab:
         row.destroy()
         for i, r in enumerate(self._rows):
             r.update_index(i)
-        self._refresh_canvas()
-
-    def _refresh_canvas(self):
-        self._rows_frame.update_idletasks()
-        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 
     # ------------------------------------------------------------------
     # Helpers de fecha
@@ -354,22 +369,24 @@ class MigrationTab:
 
     def _set_scanning_mode(self):
         self.progress.configure(mode="indeterminate")
-        self.progress.start(10)
+        self.progress.start()
         self.progress_label.configure(text="Escaneando...")
 
     def _set_progress_mode(self, total):
         self.progress.stop()
+        self.progress.configure(mode="determinate")
         if total == 0:
-            self.progress.configure(mode="determinate", maximum=1, value=0)
+            self.progress.set(0)
             self.progress_label.configure(text="Sin archivos")
         else:
-            self.progress.configure(mode="determinate", maximum=100, value=0)
+            self.progress.set(0)
             self.progress_label.configure(text=f"0 / {total}  (0%)")
 
     def _update_progress(self, done, total):
-        pct = int(done / total * 100) if total else 0
-        self.progress["value"] = pct
-        self.progress_label.configure(text=f"{done} / {total}  ({pct}%)")
+        pct = done / total if total else 0
+        self.progress.set(pct)
+        pct_int = int(pct * 100)
+        self.progress_label.configure(text=f"{done} / {total}  ({pct_int}%)")
 
     # ------------------------------------------------------------------
     # Flujo principal

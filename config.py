@@ -21,7 +21,7 @@ else:
 class Config:
     APP_NAME        = 'Governance Suite'
     APP_NAME_FULL   = 'Governance Suite — File Governance Platform'
-    VERSION         = '2.1.0'
+    VERSION         = '2.2.0'
     GUI_THEME       = 'clam'
     GUI_WINDOW_SIZE = '1280x780'
     GUI_MIN_SIZE    = (900, 600)
@@ -36,6 +36,15 @@ class Config:
     MAX_YEAR_VALID  = datetime.datetime.now().year + 1
     PERMISSIONS_MAP = {}
     INHERITED_ACE   = 0x10
+
+if WIN32_ENABLED:
+    Config.PERMISSIONS_MAP = {
+        con.FILE_GENERIC_READ: "Read",
+        con.FILE_GENERIC_READ | con.FILE_GENERIC_EXECUTE: "Read & Execute",
+        con.FILE_GENERIC_WRITE: "Write",
+        (con.FILE_GENERIC_READ | con.FILE_GENERIC_WRITE | con.FILE_GENERIC_EXECUTE | con.DELETE): "Modify",
+        con.FILE_ALL_ACCESS: "Full Control",
+    }
 
 
 # Aliases de acceso directo
