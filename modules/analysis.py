@@ -79,43 +79,42 @@ class AnalysisModule:
         df.drop(columns=["Fecha_Mod"]).to_csv(output_csv, index=False, encoding="utf-8-sig")
 
         try:
-            writer = pd.ExcelWriter(output_excel, engine="xlsxwriter")
-            wb = writer.book
-            ws = wb.add_worksheet("Dashboard")
-            bold   = wb.add_format({"bold": True})
-            title  = wb.add_format({"bold": True, "font_size": 14})
+            with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
+                wb = writer.book
+                ws = wb.add_worksheet("Dashboard")
+                bold   = wb.add_format({"bold": True})
+                title  = wb.add_format({"bold": True, "font_size": 14})
 
-            ws.write("B4", "Tamaño Total (TB):",        bold);  ws.write("C4", total_tb)
-            ws.write("B5", "Total Archivos (>= 1MB):",  bold);  ws.write("C5", total_archivos)
-            ws.write("B7", "Top 10 Archivos Pesados",  title)
-            df_top10.to_excel(writer, sheet_name="Dashboard", startrow=8, startcol=1, index=False)
+                ws.write("B4", "Tamaño Total (TB):",        bold);  ws.write("C4", total_tb)
+                ws.write("B5", "Total Archivos (>= 1MB):",  bold);  ws.write("C5", total_archivos)
+                ws.write("B7", "Top 10 Archivos Pesados",  title)
+                df_top10.to_excel(writer, sheet_name="Dashboard", startrow=8, startcol=1, index=False)
 
-            type_summary.to_excel(writer,     sheet_name="Data_Tipos",     index=False)
-            location_summary.to_excel(writer, sheet_name="Data_Ubicacion", index=False)
+                type_summary.to_excel(writer,     sheet_name="Data_Tipos",     index=False)
+                location_summary.to_excel(writer, sheet_name="Data_Ubicacion", index=False)
 
-            chart_pie = wb.add_chart({"type": "pie"})
-            chart_pie.add_series({
-                "name":        "Distribución",
-                "categories": "=Data_Tipos!$A$2:$A$12",
-                "values":     "=Data_Tipos!$B$2:$B$12",
-                "data_labels": {"percentage": True},
-            })
-            chart_pie.set_title({"name": "MB por Tipo de Archivo"})
-            ws.insert_chart("B25", chart_pie, {"x_scale": 1.2, "y_scale": 1.2})
+                chart_pie = wb.add_chart({"type": "pie"})
+                chart_pie.add_series({
+                    "name":        "Distribución",
+                    "categories": "=Data_Tipos!$A$2:$A$12",
+                    "values":     "=Data_Tipos!$B$2:$B$12",
+                    "data_labels": {"percentage": True},
+                })
+                chart_pie.set_title({"name": "MB por Tipo de Archivo"})
+                ws.insert_chart("B25", chart_pie, {"x_scale": 1.2, "y_scale": 1.2})
 
-            chart_bar = wb.add_chart({"type": "bar"})
-            chart_bar.add_series({
-                "name":        "Top 10",
-                "categories": "=Data_Ubicacion!$A$2:$A$11",
-                "values":     "=Data_Ubicacion!$B$2:$B$11",
-            })
-            chart_bar.set_title({"name": "Top 10 Ubicaciones por MB"})
-            chart_bar.set_legend({"position": "none"})
-            ws.insert_chart("K25", chart_bar, {"x_scale": 1.5, "y_scale": 1.2})
+                chart_bar = wb.add_chart({"type": "bar"})
+                chart_bar.add_series({
+                    "name":        "Top 10",
+                    "categories": "=Data_Ubicacion!$A$2:$A$11",
+                    "values":     "=Data_Ubicacion!$B$2:$B$11",
+                })
+                chart_bar.set_title({"name": "Top 10 Ubicaciones por MB"})
+                chart_bar.set_legend({"position": "none"})
+                ws.insert_chart("K25", chart_bar, {"x_scale": 1.5, "y_scale": 1.2})
 
-            writer.sheets["Data_Tipos"].hide()
-            writer.sheets["Data_Ubicacion"].hide()
-            writer.close()
+                writer.sheets["Data_Tipos"].hide()
+                writer.sheets["Data_Ubicacion"].hide()
             print(f"   ✅ Dashboard generado: {output_excel}")
         except Exception as e:
             self.core.log_error(f"Error generando Excel: {e}", "FATAL")
