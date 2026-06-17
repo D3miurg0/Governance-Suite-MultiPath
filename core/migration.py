@@ -5,6 +5,7 @@ Soporta filtro por fecha de modificación (date_from, date_to, year).
 Soporta múltiples pares origen→destino ejecutados en paralelo (migrate_multi_paths).
 """
 import os
+import json
 import shutil
 import hashlib
 from datetime import datetime
@@ -254,3 +255,48 @@ def migrate_multi_paths(
         f"{ok} nuevos, {updated} actualizados, {skipped} omitidos, {errors} errores"
     )
     return all_results
+
+
+def rollback_migration(log_path: str, progress_callback: Optional[Callable] = None) -> Dict[str, int]:
+    """
+    Lee un archivo JSON de log de migración y elimina los archivos que fueron
+    creados o sobreescritos ("status": "ok" o "updated") en el directorio destino.
+    """
+    if not os.path.exists(log_path):
+        raise FileNotFoundError(f"Log de migración no encontrado: {log_path}")
+
+    with open(log_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # Validar formato
+    if not isinstance(data, list):
+        raise ValueError("El archivo de log no tiene el formato esperado (lista de resultados).")
+
+    # Filtrar solo los archivos que fueron modificados en destino
+    target_files = [item for item in data if item.get("status") in ("ok", "updated")]
+    total = len(target_files)
+    
+    results = {"deleted": 0, "errors": 0, "not_found": 0}
+    
+    for idx, item in enumerate(target_files):
+        dst = item.get("dst")
+        if not dst:
+            continue
+            
+        try:
+            if os.path.exists(dst):
+                os.remove(dst)
+                results["deleted"] += 1
+                logger.info(f"Rollback: Eliminado {dst}")
+            else:
+                results["not_found"] += 1
+                logger.warning(f"Rollback: Archivo no encontrado {dst}")
+        except Exception as e:
+            results["errors"] += 1
+            logger.error(f"Rollback error en {dst}: {e}")
+            
+        if progress_callback:
+            progress_callback(idx + 1, total, item)
+            
+    logger.info(f"Rollback completado: {results['deleted']} eliminados, {results['not_found']} no encontrados, {results['errors']} errores")
+    return results

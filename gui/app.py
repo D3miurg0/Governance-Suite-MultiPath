@@ -1,7 +1,6 @@
 """
 Governance Suite - Ventana principal GUI con tabs (customtkinter)
 """
-import tkinter.font as tkfont
 import customtkinter as ctk
 from tkinter import ttk
 from config import APP_NAME, VERSION, GUI_WINDOW_SIZE, GUI_MIN_SIZE, ICON_PATH
@@ -56,12 +55,11 @@ class GovernanceApp:
             font=ctk.CTkFont("Segoe UI", 9),
             text_color="#6c7086"
         ).pack(side="left", padx=(0, 16))
-        # FIX: CTkFont no soporta el parametro `slant`. Se usa tkinter.font.Font
-        # directamente para poder aplicar slant='italic' correctamente.
+        # Use ctk.CTkFont with slant='italic' which is supported by CustomTkinter
         ctk.CTkLabel(
             header,
             text="File Governance Platform",
-            font=tkfont.Font(family="Segoe UI", size=9, slant="italic"),
+            font=ctk.CTkFont(family="Segoe UI", size=9, slant="italic"),
             text_color="#6c7086"
         ).pack(side="right", padx=16)
 

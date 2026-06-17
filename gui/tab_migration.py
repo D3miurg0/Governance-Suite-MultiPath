@@ -8,7 +8,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from threading import Thread, Lock
 from datetime import datetime
-from core.migration import migrate_multi_paths
+from core.migration import migrate_multi_paths, rollback_migration
 from core.exporter import auto_export
 
 
@@ -296,6 +296,13 @@ class MigrationTab:
                 command=lambda f=fmt.lower(): self._export(f)
             ).pack(side="left", padx=4)
 
+        # Botón Rollback
+        ctk.CTkButton(
+            btns, text="⏪ Rollback desde Log", fg_color=c["bg"], text_color="#f38ba8",
+            hover_color=c["surface"], width=150, border_width=1, border_color="#f38ba8",
+            command=self._gui_rollback
+        ).pack(side="right", padx=12)
+
     # ------------------------------------------------------------------
     # Gestión de filas
     # ------------------------------------------------------------------
@@ -515,6 +522,12 @@ class MigrationTab:
             self.parent.after(0, lambda: self._log(summary, "header"))
             if total_f > 0:
                 self.parent.after(0, lambda: self._update_progress(total_f, total_f))
+                # Auto-guardado de log de migración para posible rollback
+                try:
+                    log_path = auto_export(all_r, "migration_log", "json")
+                    self.parent.after(0, lambda: self._log(f"  Log automático guardado en:\n  {log_path}"))
+                except Exception as e:
+                    self.parent.after(0, lambda: self._log(f"  ⚠️ No se pudo guardar el log automático: {e}"))
             else:
                 self.parent.after(0, lambda: self._set_progress_mode(0))
                 self.parent.after(
@@ -538,3 +551,85 @@ class MigrationTab:
         all_r = [r for v in self.results.values() for r in v]
         path = auto_export(all_r, "migration", fmt)
         messagebox.showinfo("Exportado", f"Guardado en:\n{path}")
+
+    # ------------------------------------------------------------------
+    # Rollback
+    # ------------------------------------------------------------------
+
+    def _gui_rollback(self):
+        log_path = filedialog.askopenfilename(
+            title="Seleccionar Log de Migración para Rollback",
+            filetypes=[("Archivos JSON", "*.json"), ("Todos los archivos", "*.*")]
+        )
+        if not log_path:
+            return
+            
+        confirm = messagebox.askyesno(
+            "Confirmar Rollback",
+            f"¿Estás seguro de deshacer la migración registrada en este log?\n\n"
+            f"Se eliminarán los archivos copiados en el destino.\n"
+            f"Archivos sobreescritos (actualizados) también serán eliminados del destino de manera irreversible.\n\n"
+            f"Log seleccionado: {log_path}"
+        )
+        if not confirm:
+            return
+            
+        self._start_btn.configure(state="disabled")
+        self._set_scanning_mode()
+        
+        self._log(f"\n{'─' * 50}", "header")
+        self._log(f"Iniciando ROLLBACK desde: {log_path}", "header")
+        
+        Thread(
+            target=self._rollback_worker,
+            args=(log_path,),
+            daemon=True
+        ).start()
+
+    def _rollback_worker(self, log_path: str):
+        self._global_done = 0
+        self._global_total = 0
+        first_file_seen = [False]
+        
+        def cb(done, total, item):
+            with self._lock:
+                if not first_file_seen[0]:
+                    first_file_seen[0] = True
+                    self._global_total = total
+                    self.parent.after(0, lambda gt=self._global_total: self._set_progress_mode(gt))
+                
+                self._global_done = done
+                gd = self._global_done
+                gt = self._global_total
+            
+            # Log de cada archivo en tiempo real
+            dst = item.get("dst", "?")
+            self.parent.after(
+                0,
+                lambda d=dst: self._log(f"  [DELETED] {d}", "error")
+            )
+            self.parent.after(0, lambda d=gd, t=gt: self._update_progress(d, t))
+
+        try:
+            results = rollback_migration(log_path, cb)
+            
+            summary = (
+                f"\n{'─' * 50}\n"
+                f"  Rollback finalizado\n"
+                f"  ✅  Eliminados:      {results['deleted']}\n"
+                f"  ⚠️  No encontrados:  {results['not_found']}\n"
+                f"  ❌  Errores:         {results['errors']}\n"
+                f"{'─' * 50}"
+            )
+            self.parent.after(0, lambda: self._log(summary, "header"))
+            
+        except Exception as e:
+            self.parent.after(0, self.progress.stop)
+            self.parent.after(0, lambda: messagebox.showerror("Error de Rollback", str(e)))
+            self.parent.after(0, lambda: self._log(f"Error en Rollback: {e}", "error"))
+        finally:
+            self.parent.after(0, lambda: self._start_btn.configure(state="normal"))
+            if self._global_total > 0:
+                self.parent.after(0, lambda: self._update_progress(self._global_total, self._global_total))
+            else:
+                self.parent.after(0, lambda: self._set_progress_mode(0))

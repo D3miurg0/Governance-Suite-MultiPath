@@ -13,7 +13,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo Construyendo ejecutable...
-pyinstaller --clean "Governance-Suite.spec"
+pyinstaller --clean -y "Governance-Suite.spec"
 
 if %ERRORLEVEL% == 0 (
     echo.
