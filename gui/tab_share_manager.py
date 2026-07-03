@@ -17,6 +17,9 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+# Shares puramente de sistema que nunca son operables
+_SKIP_ALWAYS = {"IPC$"}
+
 
 class ShareManagerTab:
     """Pestaña de gestión de shares SMB multi-servidor."""
@@ -25,7 +28,7 @@ class ShareManagerTab:
         self.parent = parent
         self.c      = colors
         self.core   = core
-        self._mgr   = None   # ShareManagerModule, se instancia al conectar
+        self._mgr   = None
         self._shares: list[dict] = []
 
     # ── Construcción de la UI ─────────────────────────────────────────────
@@ -36,7 +39,7 @@ class ShareManagerTab:
         ac = self.c["accent"]
         sf = self.c["surface"]
 
-        # ── Fila superior: servidor ───────────────────────────────────────
+        # ── Fila superior: servidor + opciones ────────────────────────────
         top = tk.Frame(self.parent, bg=bg)
         top.pack(fill="x", padx=10, pady=(10, 4))
 
@@ -57,15 +60,26 @@ class ShareManagerTab:
             command=self._connect
         ).pack(side="left", padx=(0, 12))
 
+        # Checkbox: ocultar shares admin (C$, ADMIN$...)
+        self.hide_admin_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(
+            top, text="Ocultar admin$",
+            variable=self.hide_admin_var,
+            bg=bg, fg=fg, selectcolor=sf,
+            activebackground=bg, activeforeground=ac,
+            font=("Segoe UI", 9),
+            command=self._apply_filter
+        ).pack(side="left", padx=(0, 12))
+
         self.srv_status = tk.Label(top, text="Sin conectar",
                                    bg=bg, fg="#6c7086",
                                    font=("Segoe UI", 9, "italic"))
         self.srv_status.pack(side="left")
 
-        # ── Separador ────────────────────────────────────────────────────
+        # ── Separador ─────────────────────────────────────────────────────
         ttk.Separator(self.parent, orient="horizontal").pack(fill="x", padx=10, pady=2)
 
-        # ── Panel principal (lista izquierda + formulario derecha) ────────
+        # ── Panel principal ────────────────────────────────────────────────
         main = tk.Frame(self.parent, bg=bg)
         main.pack(fill="both", expand=True, padx=10, pady=6)
         main.columnconfigure(0, weight=2)
@@ -85,7 +99,7 @@ class ShareManagerTab:
             left, columns=cols, show="headings", selectmode="browse"
         )
         for col, hdr, w in [
-            ("name",    "Share",    120),
+            ("name",    "Share",       120),
             ("path",    "Ruta actual", 200),
             ("comment", "Comentario",  120),
         ]:
@@ -97,7 +111,6 @@ class ShareManagerTab:
         self.tree.configure(yscrollcommand=sb.set)
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
 
-        # Botón refrescar debajo de la lista
         tk.Button(
             left, text="↻  Refrescar lista",
             bg=sf, fg=fg, activebackground=ac, activeforeground="#1e1e2e",
@@ -122,7 +135,6 @@ class ShareManagerTab:
                             bg=sf, fg=fg, insertbackground=fg,
                             relief="flat", font=("Segoe UI", 10), **kw)
 
-        # Share seleccionado (solo lectura)
         lbl(right, "Share seleccionado:").grid(row=0, column=0,
                                                sticky="w", padx=10, pady=(10, 2))
         self.sel_var = tk.StringVar(value="— ninguno —")
@@ -131,7 +143,6 @@ class ShareManagerTab:
                  anchor="w", padx=6, pady=3, relief="flat"
                  ).grid(row=1, column=0, sticky="ew", padx=10)
 
-        # Ruta actual (solo lectura)
         lbl(right, "Ruta actual:").grid(row=2, column=0,
                                         sticky="w", padx=10, pady=(8, 2))
         self.cur_path_var = tk.StringVar(value="")
@@ -140,7 +151,6 @@ class ShareManagerTab:
                  anchor="w", padx=6, pady=2, relief="flat"
                  ).grid(row=3, column=0, sticky="ew", padx=10)
 
-        # Nueva ruta
         lbl(right, "Nueva ruta:").grid(row=4, column=0,
                                        sticky="w", padx=10, pady=(8, 2))
         new_row = tk.Frame(right, bg=bg)
@@ -148,13 +158,9 @@ class ShareManagerTab:
         new_row.columnconfigure(0, weight=1)
         self.new_path_var = tk.StringVar()
         entry(new_row, self.new_path_var).grid(row=0, column=0, sticky="ew")
-        tk.Button(
-            new_row, text="📁",
-            bg=sf, fg=fg, relief="flat",
-            command=self._browse_new
-        ).grid(row=0, column=1, padx=(4, 0))
+        tk.Button(new_row, text="📁", bg=sf, fg=fg, relief="flat",
+                  command=self._browse_new).grid(row=0, column=1, padx=(4, 0))
 
-        # Directorio backup
         lbl(right, "Carpeta de backup:").grid(row=6, column=0,
                                               sticky="w", padx=10, pady=(8, 2))
         bk_row = tk.Frame(right, bg=bg)
@@ -162,25 +168,20 @@ class ShareManagerTab:
         bk_row.columnconfigure(0, weight=1)
         self.backup_var = tk.StringVar(value="C:\\Temp\\ShareBackup")
         entry(bk_row, self.backup_var).grid(row=0, column=0, sticky="ew")
-        tk.Button(
-            bk_row, text="📁",
-            bg=sf, fg=fg, relief="flat",
-            command=self._browse_backup
-        ).grid(row=0, column=1, padx=(4, 0))
+        tk.Button(bk_row, text="📁", bg=sf, fg=fg, relief="flat",
+                  command=self._browse_backup).grid(row=0, column=1, padx=(4, 0))
 
         right.columnconfigure(0, weight=1)
 
-        # ── Botones de acción ─────────────────────────────────────────────
         btn_frame = tk.Frame(right, bg=bg)
         btn_frame.grid(row=8, column=0, pady=14, padx=10, sticky="ew")
         btn_frame.columnconfigure((0, 1, 2), weight=1)
 
-        btns = [
-            ("✅  Migrar",   "#a6e3a1", "#1e1e2e", self._migrate),
+        for i, (txt, bg_c, fg_c, cmd) in enumerate([
+            ("✅  Migrar",    "#a6e3a1", "#1e1e2e", self._migrate),
             ("🔍  Verificar", "#89b4fa", "#1e1e2e", self._verify),
-            ("⚠  Recrear",  "#f38ba8", "#1e1e2e", self._recreate),
-        ]
-        for i, (txt, bg_c, fg_c, cmd) in enumerate(btns):
+            ("⚠  Recrear",   "#f38ba8", "#1e1e2e", self._recreate),
+        ]):
             tk.Button(
                 btn_frame, text=txt,
                 bg=bg_c, fg=fg_c, activebackground="#cdd6f4",
@@ -207,11 +208,11 @@ class ShareManagerTab:
         self.log_box.tag_configure("err",  foreground="#f38ba8")
         self.log_box.tag_configure("warn", foreground="#f9e2af")
         self.log_box.tag_configure("info", foreground="#89b4fa")
+        self.log_box.tag_configure("dim",  foreground="#6c7086")
 
-    # ── Conexión / escaneo ─────────────────────────────────────────────────
+    # ── Conexión / escaneo ────────────────────────────────────────────────
 
     def _connect(self):
-        """Conecta al servidor indicado y escanea sus shares."""
         server = self.srv_var.get().strip()
         self.srv_status.config(text="Conectando…", fg="#f9e2af")
         self._log(f"Conectando a '{server or 'localhost'}'…", "info")
@@ -222,19 +223,36 @@ class ShareManagerTab:
         try:
             from modules.share_manager import ShareManagerModule
             mgr = ShareManagerModule(self.core, server=server)
-            shares = mgr.list_shares(skip_admin=True)
-            self._mgr = mgr
-            self.parent.after(0, lambda: self._populate_tree(shares, server))
-        except Exception as exc:
-            self.parent.after(
-                0,
-                lambda: (
-                    self._log(f"Error al conectar: {exc}", "err"),
-                    self.srv_status.config(
-                        text=f"Error: {exc}", fg="#f38ba8"
-                    )
+
+            # Traer TODOS los shares (sin filtro) para diagnóstico
+            all_shares = mgr.list_shares(skip_admin=False)
+
+            # Log de diagnóstico: qué devolvió la API exactamente
+            def _diag():
+                self._log(
+                    f"API devolvió {len(all_shares)} share(s) en total:", "dim"
                 )
-            )
+                for s in all_shares:
+                    self._log(
+                        f"   · {s['name']:<20}  {s['path']}", "dim"
+                    )
+
+            self.parent.after(0, _diag)
+
+            # Filtrar solo IPC$ (no operable); el resto se muestra siempre
+            visible = [s for s in all_shares if s["name"] not in _SKIP_ALWAYS]
+
+            self._mgr = mgr
+            # Guardar todos para operaciones internas
+            self._all_shares = all_shares
+            self.parent.after(0, lambda: self._populate_tree(visible, server))
+
+        except Exception as exc:
+            msg = str(exc)
+            self.parent.after(0, lambda: (
+                self._log(f"Error al conectar: {msg}", "err"),
+                self.srv_status.config(text=f"Error: {msg}", fg="#f38ba8")
+            ))
 
     def _populate_tree(self, shares: list[dict], server: str):
         self._shares = shares
@@ -249,9 +267,40 @@ class ShareManagerTab:
             text=f"✓  {label}  —  {count} share(s)",
             fg="#a6e3a1"
         )
-        self._log(f"Servidor '{label}': {count} share(s) encontrado(s).", "ok")
+        if count == 0:
+            self._log(
+                "⚠ 0 shares visibles. Revisa el log anterior para ver "
+                "qué devolvió la API. Posibles causas:\n"
+                "   1) Sin permisos de admin en el servidor remoto\n"
+                "   2) Firewall bloqueando puerto 445\n"
+                "   3) El servidor sólo tiene shares admin (C$, ADMIN$)",
+                "warn"
+            )
+        else:
+            self._log(
+                f"✓ Servidor '{label}': {count} share(s) mostrado(s).", "ok"
+            )
 
-    # ── Selección en el árbol ──────────────────────────────────────────────
+    # ── Filtro dinámico (checkbox) ─────────────────────────────────────────
+
+    def _apply_filter(self):
+        """Re-aplica el filtro admin$ sobre los shares ya cargados."""
+        if not self._shares and not getattr(self, "_all_shares", None):
+            return
+        source = getattr(self, "_all_shares", self._shares)
+        if self.hide_admin_var.get():
+            visible = [s for s in source
+                       if s["name"] not in _SKIP_ALWAYS
+                       and not s["name"].endswith("$")]
+        else:
+            visible = [s for s in source if s["name"] not in _SKIP_ALWAYS]
+        self._shares = visible
+        self.tree.delete(*self.tree.get_children())
+        for s in visible:
+            self.tree.insert("", "end", iid=s["name"],
+                             values=(s["name"], s["path"], s.get("comment", "")))
+
+    # ── Selección en el árbol ─────────────────────────────────────────────
 
     def _on_select(self, _event=None):
         sel = self.tree.selection()
@@ -266,7 +315,7 @@ class ShareManagerTab:
         if not self.new_path_var.get():
             self.new_path_var.set(share.get("path", ""))
 
-    # ── Navegación de carpetas ────────────────────────────────────────────
+    # ── Navegación de carpetas ─────────────────────────────────────────────
 
     def _browse_new(self):
         path = filedialog.askdirectory(title="Seleccionar nueva ruta del share")
@@ -289,10 +338,8 @@ class ShareManagerTab:
     # ── Acciones ──────────────────────────────────────────────────────────
 
     def _validate(self) -> tuple[str, str, str] | None:
-        """Valida campos y retorna (share_name, new_path, backup_dir) o None."""
         if not self._mgr:
-            messagebox.showwarning("Sin conexión",
-                                   "Conecta primero a un servidor.")
+            messagebox.showwarning("Sin conexión", "Conecta primero a un servidor.")
             return None
         name = self.sel_var.get().strip()
         if not name or name.startswith("—"):
@@ -324,7 +371,6 @@ class ShareManagerTab:
                    if ok else f"❌  La migración de '{name}' falló.")
             self.parent.after(0, lambda: self._log(msg, tag))
             if ok:
-                # Refrescar ruta actual en la lista
                 self.parent.after(0, lambda: self._refresh_item(name, new_path))
 
         self._run_in_thread(_task)
@@ -361,7 +407,6 @@ class ShareManagerTab:
         def _task():
             self.parent.after(0, lambda: self._log(
                 f"Recreando share '{name}'…", "warn"))
-            # Exportar backup primero
             self._mgr.export_shares(backup)
             ok = self._mgr.recreate_share(name, new_path)
             tag = "ok" if ok else "err"
@@ -374,7 +419,6 @@ class ShareManagerTab:
         self._run_in_thread(_task)
 
     def _refresh_item(self, name: str, new_path: str):
-        """Actualiza la ruta mostrada en el Treeview tras una operación exitosa."""
         try:
             self.tree.set(name, "path", new_path)
         except Exception:
