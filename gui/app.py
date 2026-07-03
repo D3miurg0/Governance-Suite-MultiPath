@@ -90,14 +90,16 @@ class GovernanceApp:
         from gui.tab_access_control import AccessControlTab
         from gui.tab_analysis       import AnalysisTab
         from gui.tab_reports        import ReportsTab
+        from gui.tab_share_manager  import ShareManagerTab
 
         tabs = [
-            ("  \U0001f50d  Escaneo",     ScanTab, False),
-            ("  \U0001f4c2  Migracion",   MigrationTab, False),
-            ("  \U0001f512  Permisos",    PermissionsTab, False),
-            ("  \U0001f6e1  Ctrl Acceso", AccessControlTab, True),
-            ("  \U0001f4ca  Analisis",    AnalysisTab, False),
-            ("  \U0001f4c4  Reportes",    ReportsTab, False),
+            ("  \U0001f50d  Escaneo",       ScanTab,          False),
+            ("  \U0001f4c2  Migracion",     MigrationTab,     False),
+            ("  \U0001f512  Permisos",      PermissionsTab,   False),
+            ("  \U0001f6e1  Ctrl Acceso",   AccessControlTab, True),
+            ("  \U0001f4ca  Analisis",      AnalysisTab,      False),
+            ("  \U0001f4c4  Reportes",      ReportsTab,       False),
+            ("  \U0001f5c2  Shares SMB",    ShareManagerTab,  True),
         ]
         for label, TabClass, needs_core in tabs:
             frame = ttk.Frame(self.notebook)
