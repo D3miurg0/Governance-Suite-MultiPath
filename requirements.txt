@@ -1,17 +1,17 @@
-# ── Core ──────────────────────────────────────────────────────────────────
+# ── Core ─────────────────────────────────────────────────────────────
 colorama>=0.4.6
 tqdm>=4.66.0
 
-# ── Análisis y Exportación ───────────────────────────────────────────────
+# ── Análisis y Exportación ─────────────────────────────────────────────
 pandas>=2.0.0
 openpyxl>=3.1.0
 xlsxwriter>=3.1.0
 
-# ── GUI ───────────────────────────────────────────────────────────────────
+# ── GUI ───────────────────────────────────────────────────────────────
 customtkinter>=5.2.0
 
-# ── Empaquetado (solo en equipo de desarrollo) ────────────────────────────
-# pyinstaller>=6.0.0  # Descomentar para compilar .exe
+# ── Windows API — OBLIGATORIO para shares SMB y permisos NTFS ───────────
+pywin32>=306
 
-# ── Permisos NTFS (solo Windows) ─────────────────────────────────────────
-# pywin32>=306  # Descomentar en Windows
+# ── Empaquetado (solo en equipo de desarrollo) ────────────────────────
+# pyinstaller>=6.0.0  # Descomentar para compilar .exe
