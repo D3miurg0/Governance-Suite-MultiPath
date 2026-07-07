@@ -3,8 +3,6 @@
 
 block_cipher = None
 
-# Manifiesto UAC: NO debe haber salto de línea antes de <?xml
-# PyInstaller parsea el string directamente con minidom — debe empezar en col 0
 UAC_MANIFEST = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">\n  <assemblyIdentity\n      version="1.0.0.0"\n      processorArchitecture="amd64"\n      name="GovernanceSuite"\n      type="win32"/>\n  <description>Governance Suite - File Governance Platform</description>\n  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">\n    <security>\n      <requestedPrivileges>\n        <requestedExecutionLevel level="requireAdministrator" uiAccess="false"/>\n      </requestedPrivileges>\n    </security>\n  </trustInfo>\n  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">\n    <application>\n      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>\n    </application>\n  </compatibility>\n</assembly>'
 
 a = Analysis(
@@ -16,12 +14,19 @@ a = Analysis(
         ('locales', 'locales'),
     ],
     hiddenimports=[
-        'pandas',
+        # Win32 / pywin32
         'win32net',
         'win32netcon',
         'win32security',
         'win32api',
         'pywintypes',
+        # GUI
+        'customtkinter',
+        # Data
+        'pandas',
+        # Modulos internos nuevos (PyInstaller no siempre los detecta)
+        'modules.share_manager',
+        'gui.tab_share_manager',
     ],
     hookspath=[],
     hooksconfig={},

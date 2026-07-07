@@ -165,12 +165,18 @@ class ShareManagerTab:
         threading.Thread(target=self._do_load, daemon=True).start()
 
     def _do_load(self):
+        """Corre en hilo daemon — cualquier excepcion se muestra en el log GUI."""
         if not self._mgr:
             return
-        self._shares = self._mgr.list_shares(skip_admin=False)
+        try:
+            self._shares = self._mgr.list_shares(skip_admin=False)
+        except Exception as exc:  # noqa: BLE001
+            self.parent.after(0, lambda: self._log(
+                f"❌ Error inesperado cargando shares: {exc}", "err"))
+            self._shares = []
+
         self.parent.after(0, self._refresh_tree)
-        srv = self._mgr.server_label
-        n   = len([s for s in self._shares if not s["name"].endswith("$") or s["name"] == "IPC$"])
+        srv     = self._mgr.server_label
         visible = len([s for s in self._shares if s["name"] != "IPC$"])
         if visible:
             self._sv_status.set(f"✓ {srv} — {visible} share(s)")
@@ -219,7 +225,12 @@ class ShareManagerTab:
         self._log(f"Migrando '{name}' → {new_path}…", "info")
 
         def _run():
-            ok  = self._mgr.migrate_share(name, new_path, backup)
+            try:
+                ok  = self._mgr.migrate_share(name, new_path, backup)
+            except Exception as exc:  # noqa: BLE001
+                self.parent.after(0, lambda: self._log(
+                    f"❌ Error inesperado migrando '{name}': {exc}", "err"))
+                return
             msg = (f"✅ Share '{name}' migrado correctamente."
                    if ok else f"❌ Fallo al migrar '{name}'.")
             self.parent.after(0, lambda: self._log(msg, "ok" if ok else "err"))
@@ -236,7 +247,11 @@ class ShareManagerTab:
         if not new_path:
             self._log("Indica la ruta esperada en 'Nueva ruta'.", "warn")
             return
-        ok  = self._mgr.verify_share(name, new_path)
+        try:
+            ok  = self._mgr.verify_share(name, new_path)
+        except Exception as exc:  # noqa: BLE001
+            self._log(f"❌ Error verificando '{name}': {exc}", "err")
+            return
         msg = (f"✅ '{name}' apunta correctamente a {new_path}."
                if ok else f"❌ '{name}' NO apunta a {new_path}.")
         self._log(msg, "ok" if ok else "err")
@@ -256,7 +271,11 @@ class ShareManagerTab:
             "Los permisos SMB se resetearán.\n\n¿Continuar?"
         ):
             return
-        ok  = self._mgr.recreate_share(name, new_path)
+        try:
+            ok  = self._mgr.recreate_share(name, new_path)
+        except Exception as exc:  # noqa: BLE001
+            self._log(f"❌ Error recreando '{name}': {exc}", "err")
+            return
         msg = (f"✅ '{name}' recreado en {new_path}."
                if ok else f"❌ Fallo al recrear '{name}'.")
         self._log(msg, "ok" if ok else "err")
