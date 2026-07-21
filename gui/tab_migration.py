@@ -161,6 +161,14 @@ class MigrationTab:
         )
         self.chk_parallel.pack(side="left", padx=8)
 
+        self.robocopy_var = ctk.BooleanVar(value=False)
+        self.chk_robocopy = ctk.CTkCheckBox(
+            mode_frame, text="Usar Robocopy (Volúmenes grandes)",
+            variable=self.robocopy_var,
+            text_color=c["fg"], fg_color=c["accent"], hover_color=c["surface"]
+        )
+        self.chk_robocopy.pack(side="left", padx=8)
+
         # ── Filtro por fecha ──────────────────────────────────────────
         date_frame = ctk.CTkFrame(frame, fg_color=c["surface"], corner_radius=8)
         date_frame.pack(fill="x", padx=12, pady=(6, 2))
@@ -427,6 +435,9 @@ class MigrationTab:
         self._start_btn.configure(state="disabled")
 
         mode = "paralelo" if self.parallel_var.get() else "secuencial"
+        if self.robocopy_var.get():
+            mode = "Robocopy"
+            
         self._log(f"{'─' * 50}", "header")
         self._log(f"Iniciando migración de {len(paths)} ruta(s) [{mode}]", "header")
         for i, (src, dst) in enumerate(paths):
@@ -445,6 +456,10 @@ class MigrationTab:
 
     def _worker(self, paths, year, date_from, date_to):
         """Hilo principal de migración multi-path."""
+        if self.robocopy_var.get():
+            self._worker_robocopy(paths)
+            return
+
         first_file_seen = [False]
 
         def cb(path_idx, src, done, total, r):
@@ -543,6 +558,44 @@ class MigrationTab:
             self.parent.after(0, lambda: messagebox.showerror("Error", str(e)))
         finally:
             self.parent.after(0, lambda: self._start_btn.configure(state="normal"))
+
+    def _worker_robocopy(self, paths):
+        import subprocess
+        from config import Config
+        self.parent.after(0, lambda: self._set_scanning_mode())
+        
+        for i, (src, dst) in enumerate(paths):
+            self.parent.after(0, lambda idx=i, s=src, d=dst: self._log(f"\n🚀 Iniciando Robocopy Ruta #{idx+1}: {s} → {d}", "header"))
+            
+            cmd = [
+                'robocopy', src, dst,
+                '/E', '/R:3', '/W:10', f'/MT:{Config.ROBOCOPY_THREADS}', '/NP'
+            ]
+            try:
+                flags = 0x08000000 if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+                process = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                    text=True, bufsize=1, creationflags=flags
+                )
+                for line in process.stdout:
+                    clean_line = line.strip()
+                    if clean_line:
+                        self.parent.after(0, lambda l=clean_line: self._log(f"  {l}"))
+                process.wait()
+                
+                rc = process.returncode
+                if rc <= 3:
+                    self.parent.after(0, lambda c=rc: self._log(f"✅ Robocopy finalizado con éxito (código {c})", "ok"))
+                elif rc < 8:
+                    self.parent.after(0, lambda c=rc: self._log(f"⚠️ Robocopy finalizado con advertencias (código {c})", "updated"))
+                else:
+                    self.parent.after(0, lambda c=rc: self._log(f"❌ Robocopy falló (código {c})", "error"))
+            except Exception as e:
+                self.parent.after(0, lambda err=e: self._log(f"❌ Error al iniciar Robocopy: {err}", "error"))
+
+        self.parent.after(0, lambda: self._set_progress_mode(0))
+        self.parent.after(0, lambda: self._start_btn.configure(state="normal"))
+        self.parent.after(0, lambda: self._log("\n" + "─" * 50 + "\n  Migración por Robocopy finalizada\n" + "─" * 50, "header"))
 
     def _export(self, fmt):
         if not self.results:

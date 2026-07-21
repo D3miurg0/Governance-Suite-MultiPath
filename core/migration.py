@@ -11,9 +11,10 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional, Callable, Tuple
+import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.logger import get_logger
-from config import DEFAULT_THREADS
+from config import DEFAULT_THREADS, ROBOCOPY_THREADS
 
 logger = get_logger("migration")
 
@@ -170,6 +171,32 @@ def migrate_directory(
     )
     return results
 
+
+def run_robocopy(src: str, dst: str, permissions: bool = True, log_path: str = None) -> int:
+    """
+    Ejecuta Robocopy para migrar src -> dst.
+    Retorna el exit code de Robocopy (0-3 = éxito, 8+ = errores).
+    """
+    cmd = [
+        'robocopy', src, dst,
+        '/E',        # Incluye subdirectorios vacíos
+        '/R:3',      # 3 reintentos por archivo
+        '/W:10',     # Espera 10s entre reintentos
+        f'/MT:{ROBOCOPY_THREADS}',    # Hilos paralelos desde config
+        '/NP',       # Sin barra de progreso
+    ]
+    if permissions:
+        cmd.append('/COPYALL')
+    else:
+        cmd.append('/COPY:DAT')
+    if log_path:
+        cmd.append('/LOG+:' + log_path)
+    
+    # Ejecutar
+    # En la GUI lo ejecutaremos con Popen para leer stdout en tiempo real,
+    # pero proveemos la función base
+    result = subprocess.run(cmd, capture_output=False)
+    return result.returncode
 
 # ---------------------------------------------------------------------------
 # Multi-path: migra N pares origen→destino con progreso unificado

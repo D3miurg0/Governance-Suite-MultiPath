@@ -67,6 +67,7 @@ MIN_YEAR_VALID  = Config.MIN_YEAR_VALID
 MAX_YEAR_VALID  = Config.MAX_YEAR_VALID
 DEFAULT_THREADS = 8
 DEFAULT_TIMEOUT = 5
+ROBOCOPY_THREADS = 16
 WIN32_ENABLED   = WIN32_ENABLED
 
 # --- Auto-crear directorios esenciales al arrancar ---

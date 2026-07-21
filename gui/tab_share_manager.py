@@ -9,6 +9,7 @@ Firma compatible con el resto de tabs de app.py:
 """
 from __future__ import annotations
 
+import os
 import socket
 import threading
 import tkinter as tk
@@ -96,6 +97,10 @@ class ShareManagerTab:
             row=3, column=0, sticky="ew", padx=8)
 
         ttk.Label(op, text="Nueva ruta:").grid(row=4, column=0, sticky="w", padx=8, pady=(8, 0))
+        
+        self._lbl_path_status = ttk.Label(op, text="")
+        self._lbl_path_status.grid(row=4, column=0, sticky="e", padx=8, pady=(8, 0))
+
         ruta_f = ttk.Frame(op)
         ruta_f.grid(row=5, column=0, sticky="ew", padx=8)
         ruta_f.columnconfigure(0, weight=1)
@@ -119,9 +124,13 @@ class ShareManagerTab:
 
         btn_f = ttk.Frame(op)
         btn_f.grid(row=8, column=0, pady=12, padx=8)
-        ttk.Button(btn_f, text="☑ Migrar",    command=self._on_migrate).pack(side="left", padx=4)
+        self.btn_migrar = ttk.Button(btn_f, text="☑ Migrar", command=self._on_migrate)
+        self.btn_migrar.pack(side="left", padx=4)
+        self.btn_migrar.state(["disabled"])  # Starts disabled
         ttk.Button(btn_f, text="● Verificar", command=self._on_verify).pack(side="left", padx=4)
         ttk.Button(btn_f, text="⚠ Recrear",   command=self._on_recreate).pack(side="left", padx=4)
+
+        self._sv_new_path.trace_add("write", self._on_new_path_change)
 
         # ── Log ─────────────────────────────────────────────────────────────
         lf2 = ttk.LabelFrame(f, text="Log de operaciones")
@@ -143,6 +152,23 @@ class ShareManagerTab:
         self.parent.after(200, self._on_connect)
 
     # ── Lógica ────────────────────────────────────────────────────────────
+
+    def _on_new_path_change(self, *args):
+        path = self._sv_new_path.get().strip()
+        if not path:
+            self._lbl_path_status.configure(text="", foreground="black")
+            if hasattr(self, 'btn_migrar'):
+                self.btn_migrar.state(["disabled"])
+            return
+            
+        if os.path.isdir(path):
+            self._lbl_path_status.configure(text="✓ Ruta válida", foreground="green")
+            if hasattr(self, 'btn_migrar'):
+                self.btn_migrar.state(["!disabled"])
+        else:
+            self._lbl_path_status.configure(text="✗ Ruta no encontrada", foreground="red")
+            if hasattr(self, 'btn_migrar'):
+                self.btn_migrar.state(["disabled"])
 
     def _log(self, msg: str, tag: str = "info"):
         self._log_text.configure(state="normal")
@@ -222,6 +248,14 @@ class ShareManagerTab:
             self._log("Indica la nueva ruta.", "warn")
             return
         backup = self._sv_backup.get().strip() or "."
+
+        sessions = self._mgr.get_active_sessions(name)
+        if sessions:
+            msg = f"Hay {len(sessions)} sesión(es) activa(s) con archivos abiertos en el servidor.\n¿Deseas continuar de todos modos y arriesgar desconectarlos?"
+            if not messagebox.askyesno("Sesiones activas detectadas", msg, icon="warning"):
+                self._log("Migración cancelada por el usuario (sesiones activas).", "info")
+                return
+
         self._log(f"Migrando '{name}' → {new_path}…", "info")
 
         def _run():
@@ -265,6 +299,14 @@ class ShareManagerTab:
         if not new_path:
             self._log("Indica la nueva ruta.", "warn")
             return
+
+        sessions = self._mgr.get_active_sessions(name)
+        if sessions:
+            msg = f"Hay {len(sessions)} sesión(es) activa(s) con archivos abiertos en el servidor.\n¿Deseas continuar de todos modos y arriesgar desconectarlos?"
+            if not messagebox.askyesno("Sesiones activas detectadas", msg, icon="warning"):
+                self._log("Recreación cancelada por el usuario (sesiones activas).", "info")
+                return
+
         if not messagebox.askyesno(
             "Recrear share",
             f"Esto eliminará y recreará '{name}'.\n"
