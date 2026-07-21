@@ -83,7 +83,6 @@ class ShareManagerModule:
         try:
             resume = 0
             while True:
-                # Nivel 2: devuelve dicts con 'netname','type','remark','path',...
                 data, _total, resume = win32net.NetShareEnum(
                     self._server, _ENUM_LEVEL, resume, 65535
                 )
@@ -164,6 +163,51 @@ class ShareManagerModule:
             self._log(f"get_share_permissions | {name} | {e.strerror}", "ERROR")
         return results
 
+    # ── Sesiones activas (issue #1) ───────────────────────────────────────
+
+    def get_active_sessions(self, share_name: str = "") -> list[dict]:
+        """
+        Retorna lista de sesiones SMB activas en el servidor.
+        Si share_name se proporciona, filtra solo sesiones con archivos abiertos
+        (num_opens > 0). Para filtrado preciso por share se requiere nivel 502.
+
+        Retorna lista de dicts con claves:
+            user, client, open_files, idle_time_sec
+        """
+        if not self._check_win32():
+            return []
+        sessions = []
+        try:
+            resume = 0
+            while True:
+                data, _total, resume = win32net.NetSessionEnum(
+                    self._server, None, None, 502, resume
+                )
+                for s in data:
+                    open_files = s.get("num_opens", 0)
+                    # Si se filtró por share_name solo incluimos sesiones con
+                    # archivos abiertos (no hay API directa de filtrado por share
+                    # en NetSessionEnum; NetFileEnum se usaría para precisión total)
+                    if share_name and open_files == 0:
+                        continue
+                    sessions.append({
+                        "user":         s.get("username", "?"),
+                        "client":       s.get("cname", "?").lstrip("\\\\"),
+                        "open_files":   open_files,
+                        "idle_time_sec": s.get("idle_time", 0),
+                    })
+                if not resume:
+                    break
+        except pywintypes.error as e:
+            # ERROR 5 = Access Denied (se necesita admin)
+            # ERROR 2312 = No hay sesiones activas (no es un error real)
+            if e.winerror not in (2312,):
+                self._log(
+                    f"get_active_sessions | code={e.winerror} | {e.strerror}",
+                    "ERROR"
+                )
+        return sessions
+
     # ── Exportación ──────────────────────────────────────────────────────
 
     def export_shares(self, output_dir: str = ".") -> str:
@@ -234,13 +278,25 @@ class ShareManagerModule:
 
     def recreate_share(
         self, name: str, new_path: str,
-        comment: str = "", max_uses: int = -1
+        comment: str = "", max_uses: int = -1,
+        backup_dir: str = "."
     ) -> bool:
+        """
+        Elimina y recrea el share en new_path.
+
+        CAMBIO issue #4: export_shares() se ejecuta ANTES de NetShareDel para
+        garantizar que el ACL SMB quede respaldado incluso si la recreación falla.
+        """
         if not self._check_win32():
             return False
         if not os.path.isdir(new_path):
             self._log(f"recreate_share | Ruta no existe: {new_path}", "ERROR")
             return False
+
+        # ── Backup preventivo antes de cualquier operación destructiva (issue #4) ──
+        self._log(f"recreate_share | Generando backup de seguridad en: {backup_dir}")
+        self.export_shares(backup_dir)
+
         old_info = self.get_share_info(name)
         try:
             win32net.NetShareDel(self._server, name)
