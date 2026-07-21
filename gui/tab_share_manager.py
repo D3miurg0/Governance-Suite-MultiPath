@@ -5,10 +5,16 @@ Pestaña GUI para gestión / migración de shares SMB.
 Firma compatible con el resto de tabs de app.py:
   __init__(self, parent, colors, core=None)
   build()
+
+Cambios:
+  issue #1 — Detección de sesiones SMB activas antes de Migrar / Recrear.
+  issue #2 — Validación visual en tiempo real del campo Nueva ruta (✅/❌/⚠).
+             Botón Migrar deshabilitado cuando la ruta no es válida.
 ─────────────────────────────────────────────────────────────────────────────
 """
 from __future__ import annotations
 
+import os
 import socket
 import threading
 import tkinter as tk
@@ -22,12 +28,13 @@ class ShareManagerTab:
     """Pestaña de gestión y migración de shares SMB."""
 
     def __init__(self, parent: ttk.Frame, colors: dict, core=None):
-        """Firma idéntica al resto de tabs: (parent, colors, core)."""
         self.parent = parent
         self.colors = colors
         self.core   = core
         self._mgr: Optional[ShareManagerModule] = None
         self._shares: list[dict] = []
+        # Referencia al botón Migrar para habilitar/deshabilitar (issue #2)
+        self._btn_migrar: Optional[ttk.Button] = None
 
     def build(self):
         """Construye la UI dentro de self.parent (llamado desde app.py)."""
@@ -100,15 +107,25 @@ class ShareManagerTab:
         ruta_f.grid(row=5, column=0, sticky="ew", padx=8)
         ruta_f.columnconfigure(0, weight=1)
         self._sv_new_path = tk.StringVar()
+        # Rastrear cambios en el campo para validación en tiempo real (issue #2)
+        self._sv_new_path.trace_add("write", self._on_new_path_change)
         ttk.Entry(ruta_f, textvariable=self._sv_new_path).grid(row=0, column=0, sticky="ew")
         ttk.Button(ruta_f, text="📂", width=3,
                    command=lambda: self._sv_new_path.set(
                        filedialog.askdirectory() or self._sv_new_path.get()
                    )).grid(row=0, column=1)
 
-        ttk.Label(op, text="Carpeta de backup:").grid(row=6, column=0, sticky="w", padx=8, pady=(8, 0))
+        # ── Indicador de validación de ruta (issue #2) ────────────────
+        self._sv_path_status = tk.StringVar(value="")
+        self._lbl_path_status = ttk.Label(
+            op, textvariable=self._sv_path_status,
+            font=("Segoe UI", 9)
+        )
+        self._lbl_path_status.grid(row=6, column=0, sticky="w", padx=10, pady=(2, 0))
+
+        ttk.Label(op, text="Carpeta de backup:").grid(row=7, column=0, sticky="w", padx=8, pady=(8, 0))
         bk_f = ttk.Frame(op)
-        bk_f.grid(row=7, column=0, sticky="ew", padx=8)
+        bk_f.grid(row=8, column=0, sticky="ew", padx=8)
         bk_f.columnconfigure(0, weight=1)
         self._sv_backup = tk.StringVar(value=r"C:\Temp\ShareBackup")
         ttk.Entry(bk_f, textvariable=self._sv_backup).grid(row=0, column=0, sticky="ew")
@@ -118,8 +135,12 @@ class ShareManagerTab:
                    )).grid(row=0, column=1)
 
         btn_f = ttk.Frame(op)
-        btn_f.grid(row=8, column=0, pady=12, padx=8)
-        ttk.Button(btn_f, text="☑ Migrar",    command=self._on_migrate).pack(side="left", padx=4)
+        btn_f.grid(row=9, column=0, pady=12, padx=8)
+
+        # Botón Migrar — se guarda la referencia para poder deshabilitarlo (issue #2)
+        self._btn_migrar = ttk.Button(btn_f, text="☑ Migrar", command=self._on_migrate, state="disabled")
+        self._btn_migrar.pack(side="left", padx=4)
+
         ttk.Button(btn_f, text="● Verificar", command=self._on_verify).pack(side="left", padx=4)
         ttk.Button(btn_f, text="⚠ Recrear",   command=self._on_recreate).pack(side="left", padx=4)
 
@@ -141,6 +162,92 @@ class ShareManagerTab:
 
         # Auto-conectar al abrir la pestaña
         self.parent.after(200, self._on_connect)
+
+    # ── Validación de ruta en tiempo real (issue #2) ──────────────────────
+
+    def _on_new_path_change(self, *_args):
+        """
+        Callback ejecutado cada vez que el campo 'Nueva ruta' cambia.
+        Actualiza el indicador visual y habilita/deshabilita el botón Migrar.
+        """
+        path = self._sv_new_path.get().strip()
+
+        if not path:
+            # Campo vacío — sin indicador, botón deshabilitado
+            self._sv_path_status.set("")
+            self._lbl_path_status.configure(foreground="gray")
+            if self._btn_migrar:
+                self._btn_migrar.configure(state="disabled")
+            return
+
+        # Detectar si es ruta UNC (\\servidor\recurso) — no verificable localmente
+        is_unc = path.startswith("\\\\")
+
+        if is_unc:
+            self._sv_path_status.set("⚠  Ruta UNC — verificar manualmente")
+            self._lbl_path_status.configure(foreground="#ce9178")
+            # Habilitamos Migrar ya que no podemos verificar remotamente
+            if self._btn_migrar:
+                self._btn_migrar.configure(state="normal")
+        elif os.path.isdir(path):
+            self._sv_path_status.set("✅  Ruta válida")
+            self._lbl_path_status.configure(foreground="#4ec94e")
+            if self._btn_migrar:
+                self._btn_migrar.configure(state="normal")
+        else:
+            self._sv_path_status.set("❌  Ruta no encontrada")
+            self._lbl_path_status.configure(foreground="#f44747")
+            if self._btn_migrar:
+                self._btn_migrar.configure(state="disabled")
+
+    # ── Verificación de sesiones activas (issue #1) ───────────────────────
+
+    def _check_sessions_before_op(self, share_name: str, op_label: str) -> bool:
+        """
+        Consulta sesiones SMB activas. Si hay usuarios conectados muestra
+        un diálogo de advertencia con la lista.
+
+        Retorna True si se debe continuar con la operación, False si el
+        usuario eligió cancelar.
+        """
+        if not self._mgr:
+            return True
+        try:
+            sessions = self._mgr.get_active_sessions(share_name)
+        except Exception as exc:
+            self._log(f"⚠ No se pudo verificar sesiones activas: {exc}", "warn")
+            return True  # No bloqueamos si la consulta falla
+
+        if not sessions:
+            return True  # Sin sesiones activas — continuar directamente
+
+        # Construir mensaje con detalle de usuarios conectados
+        lines = []
+        for s in sessions[:10]:  # Máximo 10 en el diálogo para no saturarlo
+            idle_min = s["idle_time_sec"] // 60
+            lines.append(
+                f"  • {s['user']}@{s['client']}  "
+                f"({s['open_files']} archivo(s) abierto(s), inactivo {idle_min} min)"
+            )
+        if len(sessions) > 10:
+            lines.append(f"  ... y {len(sessions) - 10} sesión(es) más.")
+
+        users_detail = "\n".join(lines)
+        msg = (
+            f"⚠  Hay {len(sessions)} sesión(es) SMB activa(s) en el servidor:\n\n"
+            f"{users_detail}\n\n"
+            f"Continuar con '{op_label}' puede interrumpir el acceso de estos usuarios.\n"
+            f"¿Deseas continuar de todas formas?"
+        )
+        self._log(
+            f"⚠ {len(sessions)} sesión(es) activa(s) detectada(s) antes de '{op_label}'.",
+            "warn"
+        )
+        return messagebox.askyesno(
+            f"Sesiones activas — {op_label}",
+            msg,
+            icon="warning"
+        )
 
     # ── Lógica ────────────────────────────────────────────────────────────
 
@@ -165,12 +272,12 @@ class ShareManagerTab:
         threading.Thread(target=self._do_load, daemon=True).start()
 
     def _do_load(self):
-        """Corre en hilo daemon — cualquier excepcion se muestra en el log GUI."""
+        """Corre en hilo daemon — cualquier excepción se muestra en el log GUI."""
         if not self._mgr:
             return
         try:
             self._shares = self._mgr.list_shares(skip_admin=False)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             self.parent.after(0, lambda: self._log(
                 f"❌ Error inesperado cargando shares: {exc}", "err"))
             self._shares = []
@@ -221,13 +328,19 @@ class ShareManagerTab:
         if not new_path:
             self._log("Indica la nueva ruta.", "warn")
             return
+
+        # ── Verificar sesiones activas antes de migrar (issue #1) ──
+        if not self._check_sessions_before_op(name, "Migrar"):
+            self._log("Migración cancelada por el usuario.", "warn")
+            return
+
         backup = self._sv_backup.get().strip() or "."
         self._log(f"Migrando '{name}' → {new_path}…", "info")
 
         def _run():
             try:
-                ok  = self._mgr.migrate_share(name, new_path, backup)
-            except Exception as exc:  # noqa: BLE001
+                ok = self._mgr.migrate_share(name, new_path, backup)
+            except Exception as exc:
                 self.parent.after(0, lambda: self._log(
                     f"❌ Error inesperado migrando '{name}': {exc}", "err"))
                 return
@@ -248,8 +361,8 @@ class ShareManagerTab:
             self._log("Indica la ruta esperada en 'Nueva ruta'.", "warn")
             return
         try:
-            ok  = self._mgr.verify_share(name, new_path)
-        except Exception as exc:  # noqa: BLE001
+            ok = self._mgr.verify_share(name, new_path)
+        except Exception as exc:
             self._log(f"❌ Error verificando '{name}': {exc}", "err")
             return
         msg = (f"✅ '{name}' apunta correctamente a {new_path}."
@@ -271,9 +384,16 @@ class ShareManagerTab:
             "Los permisos SMB se resetearán.\n\n¿Continuar?"
         ):
             return
+
+        # ── Verificar sesiones activas antes de recrear (issue #1) ──
+        if not self._check_sessions_before_op(name, "Recrear"):
+            self._log("Recreación cancelada por el usuario.", "warn")
+            return
+
+        backup = self._sv_backup.get().strip() or "."
         try:
-            ok  = self._mgr.recreate_share(name, new_path)
-        except Exception as exc:  # noqa: BLE001
+            ok = self._mgr.recreate_share(name, new_path, backup_dir=backup)
+        except Exception as exc:
             self._log(f"❌ Error recreando '{name}': {exc}", "err")
             return
         msg = (f"✅ '{name}' recreado en {new_path}."
