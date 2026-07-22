@@ -259,12 +259,23 @@ class ShareManagerModule:
         if not os.path.isdir(new_path):
             self._log(f"recreate_share | Ruta no existe: {new_path}", "ERROR")
             return False
+            
         old_info = self.get_share_info(name)
+        
+        # Intentar respaldar el Security Descriptor (permisos SMB)
+        sd_backup = None
+        try:
+            full_old = win32net.NetShareGetInfo(self._server, name, _SHARE_INFO_LEVEL)
+            sd_backup = full_old.get("security_descriptor")
+        except pywintypes.error:
+            pass
+
         try:
             win32net.NetShareDel(self._server, name)
         except pywintypes.error as e:
             self._log(f"recreate_share | Error al eliminar '{name}': {e.strerror}", "ERROR")
             return False
+            
         new_info = {
             "netname":  name,
             "path":     new_path,
@@ -276,6 +287,17 @@ class ShareManagerModule:
         try:
             win32net.NetShareAdd(self._server, 2, new_info)
             self._log(f"recreate_share | [{self.server_label}] '{name}' recreado en {new_path}")
+            
+            # Restaurar el Security Descriptor
+            if sd_backup:
+                try:
+                    new_full = win32net.NetShareGetInfo(self._server, name, _SHARE_INFO_LEVEL)
+                    new_full["security_descriptor"] = sd_backup
+                    win32net.NetShareSetInfo(self._server, name, _SHARE_INFO_LEVEL, new_full)
+                    self._log(f"recreate_share | Permisos SMB restaurados para '{name}'")
+                except pywintypes.error as e:
+                    self._log(f"recreate_share | Error al restaurar permisos en '{name}': {e.strerror}", "ERROR")
+                    
             return True
         except pywintypes.error as e:
             self._log(f"recreate_share | Error al crear '{name}': {e.strerror}", "ERROR")
