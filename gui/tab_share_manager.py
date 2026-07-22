@@ -291,35 +291,46 @@ class ShareManagerTab:
         self._log(msg, "ok" if ok else "err")
 
     def _on_recreate(self):
-        name = self._selected_share()
-        if not name:
-            self._log("Selecciona un share primero.", "warn")
-            return
-        new_path = self._sv_new_path.get().strip()
-        if not new_path:
-            self._log("Indica la nueva ruta.", "warn")
-            return
-
-        sessions = self._mgr.get_active_sessions(name)
-        if sessions:
-            msg = f"Hay {len(sessions)} sesión(es) activa(s) con archivos abiertos en el servidor.\n¿Deseas continuar de todos modos y arriesgar desconectarlos?"
-            if not messagebox.askyesno("Sesiones activas detectadas", msg, icon="warning"):
-                self._log("Recreación cancelada por el usuario (sesiones activas).", "info")
+        try:
+            name = self._selected_share()
+            if not name:
+                self._log("Selecciona un share primero.", "warn")
+                return
+            new_path = self._sv_new_path.get().strip()
+            if not new_path:
+                self._log("Indica la nueva ruta.", "warn")
                 return
 
-        if not messagebox.askyesno(
-            "Recrear share",
-            f"Esto eliminará y recreará '{name}'.\n"
-            "Los permisos SMB se resetearán.\n\n¿Continuar?"
-        ):
-            return
-        try:
-            ok  = self._mgr.recreate_share(name, new_path)
-        except Exception as exc:  # noqa: BLE001
-            self._log(f"❌ Error recreando '{name}': {exc}", "err")
-            return
-        msg = (f"✅ '{name}' recreado en {new_path}."
-               if ok else f"❌ Fallo al recrear '{name}'.")
-        self._log(msg, "ok" if ok else "err")
-        if ok:
-            self._on_connect()
+            try:
+                sessions = self._mgr.get_active_sessions(name)
+            except Exception as e:
+                self._log(f"Advertencia: Fallo al leer sesiones ({e})", "warn")
+                sessions = []
+
+            if sessions:
+                msg = f"Hay {len(sessions)} sesión(es) activa(s) con archivos abiertos en el servidor.\n¿Deseas continuar de todos modos y arriesgar desconectarlos?"
+                if not messagebox.askyesno("Sesiones activas detectadas", msg, icon="warning", parent=self.parent):
+                    self._log("Recreación cancelada por el usuario (sesiones activas).", "info")
+                    return
+
+            if not messagebox.askyesno(
+                "Recrear share",
+                f"Esto eliminará y recreará '{name}'.\n"
+                "Los permisos SMB se clonarán automáticamente.\n\n¿Continuar?",
+                parent=self.parent
+            ):
+                return
+                
+            try:
+                ok  = self._mgr.recreate_share(name, new_path)
+            except Exception as exc:  # noqa: BLE001
+                self._log(f"❌ Error recreando '{name}': {exc}", "err")
+                return
+                
+            msg = (f"✅ '{name}' recreado en {new_path}."
+                   if ok else f"❌ Fallo al recrear '{name}'.")
+            self._log(msg, "ok" if ok else "err")
+            if ok:
+                self._on_connect()
+        except Exception as global_exc:
+            self._log(f"❌ Error crítico en _on_recreate: {global_exc}", "err")
