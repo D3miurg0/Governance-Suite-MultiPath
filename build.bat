@@ -3,6 +3,11 @@ echo ========================================
 echo  GovernanceSuite ^| Build
 echo ========================================
 
+if exist venv\Scripts\activate (
+    echo Activando entorno virtual...
+    call venv\Scripts\activate
+)
+
 pip install pillow pyinstaller >nul 2>&1
 
 echo Generando icon.ico...
