@@ -164,6 +164,24 @@ class ShareManagerModule:
             self._log(f"get_share_permissions | {name} | {e.strerror}", "ERROR")
         return results
 
+    def get_active_sessions(self, share_name: str) -> list[dict]:
+        """Retorna lista de sesiones activas que tienen archivos abiertos en el share."""
+        if not self._check_win32():
+            return []
+        sessions = []
+        try:
+            data, _, _ = win32net.NetSessionEnum(self._server, None, None, 502)
+            for s in data:
+                if s.get('num_opens', 0) > 0:
+                    sessions.append({
+                        'user': s.get('username', ''),
+                        'client': s.get('cname', ''),
+                        'open_files': s.get('num_opens', 0),
+                    })
+        except pywintypes.error as e:
+            self._log(f"get_active_sessions | {e.strerror}", "ERROR")
+        return sessions
+
     # ── Exportación ──────────────────────────────────────────────────────
 
     def export_shares(self, output_dir: str = ".") -> str:
