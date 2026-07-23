@@ -73,10 +73,10 @@ def get_permissions_ntfs(path: str) -> List[Dict]:
                 "mask": mask,
                 "ace_type": ace_type,
                 "ace_flags": ace_flags,
-                "read": bool(mask & con.FILE_GENERIC_READ),
-                "write": bool(mask & con.FILE_GENERIC_WRITE),
-                "execute": bool(mask & con.FILE_GENERIC_EXECUTE),
-                "full_control": bool(mask & con.FILE_ALL_ACCESS),
+                "read": (mask & con.FILE_GENERIC_READ) == con.FILE_GENERIC_READ,
+                "write": (mask & con.FILE_GENERIC_WRITE) == con.FILE_GENERIC_WRITE,
+                "execute": (mask & con.FILE_GENERIC_EXECUTE) == con.FILE_GENERIC_EXECUTE,
+                "full_control": (mask & con.FILE_ALL_ACCESS) == con.FILE_ALL_ACCESS,
             })
     except Exception as e:
         logger.error(f"Error leyendo ACL de {path}: {e}")
