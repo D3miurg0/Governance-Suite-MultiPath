@@ -149,8 +149,8 @@ class ShareManagerModule:
                 except pywintypes.error:
                     account_str = str(sid)
                 access_type = "Allow" if ace_type == 0 else "Deny"
-                rights = ("Full Control" if mask & 0x1F01FF
-                          else "Change"   if mask & 0x1301BF
+                rights = ("Full Control" if (mask & 0x1F01FF) == 0x1F01FF
+                          else "Change"   if (mask & 0x1301BF) == 0x1301BF
                           else "Read")
                 results.append({
                     "server":      self.server_label,
@@ -170,16 +170,18 @@ class ShareManagerModule:
             return []
         sessions = []
         try:
-            data, _, _ = win32net.NetSessionEnum(self._server, None, None, 502)
+            data = win32net.NetSessionEnum(502, self._server, None, None)
             for s in data:
                 if s.get('num_opens', 0) > 0:
                     sessions.append({
-                        'user': s.get('username', ''),
-                        'client': s.get('cname', ''),
+                        'user': s.get('username', s.get('user_name', '')),
+                        'client': s.get('cname', s.get('client_name', '')),
                         'open_files': s.get('num_opens', 0),
                     })
         except pywintypes.error as e:
             self._log(f"get_active_sessions | {e.strerror}", "ERROR")
+        except Exception as e:
+            self._log(f"get_active_sessions Error | {e}", "ERROR")
         return sessions
 
     # ── Exportación ──────────────────────────────────────────────────────
@@ -262,6 +264,14 @@ class ShareManagerModule:
             
         old_info = self.get_share_info(name)
         
+        def _get_target_path(path_str):
+            if not self._server or self._server.lower() in ("localhost", "127.0.0.1", ""):
+                return path_str
+            drive, rest = os.path.splitdrive(path_str)
+            if drive.endswith(':'):
+                return f"\\\\{self._server}\\{drive[:-1]}${rest}"
+            return path_str
+        
         # Intentar respaldar el Security Descriptor (permisos SMB)
         sd_backup = None
         try:
@@ -269,6 +279,18 @@ class ShareManagerModule:
             sd_backup = full_old.get("security_descriptor")
         except pywintypes.error:
             pass
+            
+        # Intentar respaldar permisos NTFS
+        ntfs_backup = None
+        old_path = old_info.get("path", "") if old_info else ""
+        if old_path:
+            try:
+                ntfs_backup = win32security.GetFileSecurity(
+                    _get_target_path(old_path), 
+                    win32security.DACL_SECURITY_INFORMATION
+                )
+            except Exception as e:
+                self._log(f"recreate_share | No se pudo respaldar NTFS de '{old_path}': {e}", "WARNING")
 
         try:
             win32net.NetShareDel(self._server, name)
@@ -284,19 +306,34 @@ class ShareManagerModule:
                         else (old_info.get("max_uses", -1) if old_info else -1),
             "type":     0,
         }
+        if sd_backup:
+            new_info["security_descriptor"] = sd_backup
+
         try:
-            win32net.NetShareAdd(self._server, 2, new_info)
+            # Usar nivel 502 para que acepte el security_descriptor desde la creación
+            level = 502 if sd_backup else 2
+            win32net.NetShareAdd(self._server, level, new_info)
             self._log(f"recreate_share | [{self.server_label}] '{name}' recreado en {new_path}")
-            
-            # Restaurar el Security Descriptor
             if sd_backup:
+                self._log(f"recreate_share | Permisos SMB aplicados nativamente para '{name}'")
+                    
+            # Restaurar permisos NTFS
+            if ntfs_backup:
                 try:
-                    new_full = win32net.NetShareGetInfo(self._server, name, _SHARE_INFO_LEVEL)
-                    new_full["security_descriptor"] = sd_backup
-                    win32net.NetShareSetInfo(self._server, name, _SHARE_INFO_LEVEL, new_full)
-                    self._log(f"recreate_share | Permisos SMB restaurados para '{name}'")
-                except pywintypes.error as e:
-                    self._log(f"recreate_share | Error al restaurar permisos en '{name}': {e.strerror}", "ERROR")
+                    # Proteger el DACL para forzar que los permisos originales se mantengan
+                    # y no sean sobreescritos o limpiados por la herencia de la nueva ruta (E:\)
+                    ntfs_backup.SetSecurityDescriptorControl(
+                        win32security.SE_DACL_PROTECTED | win32security.SE_DACL_PRESENT,
+                        win32security.SE_DACL_PROTECTED | win32security.SE_DACL_PRESENT
+                    )
+                    win32security.SetFileSecurity(
+                        _get_target_path(new_path),
+                        win32security.DACL_SECURITY_INFORMATION,
+                        ntfs_backup
+                    )
+                    self._log(f"recreate_share | Permisos NTFS copiados y protegidos en '{new_path}'")
+                except Exception as e:
+                    self._log(f"recreate_share | Error al copiar permisos NTFS: {e}", "ERROR")
                     
             return True
         except pywintypes.error as e:
